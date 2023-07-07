@@ -1,0 +1,11 @@
+/Users/dogademirturk/Desktop/blockchain-solana/target/debug/deps/borsh-f1b42fc5de2d8469.rmeta: /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/lib.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/de/mod.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/de/hint.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/schema.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/schema_helpers.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/ser/mod.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/ser/helpers.rs
+
+/Users/dogademirturk/Desktop/blockchain-solana/target/debug/deps/borsh-f1b42fc5de2d8469.d: /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/lib.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/de/mod.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/de/hint.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/schema.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/schema_helpers.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/ser/mod.rs /Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/ser/helpers.rs
+
+/Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/lib.rs:
+/Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/de/mod.rs:
+/Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/de/hint.rs:
+/Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/schema.rs:
+/Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/schema_helpers.rs:
+/Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/ser/mod.rs:
+/Users/dogademirturk/.cargo/registry/src/index.crates.io-6f17d22bba15001f/borsh-0.10.3/src/ser/helpers.rs:
