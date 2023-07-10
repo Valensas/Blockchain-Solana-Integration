@@ -347,6 +347,8 @@ name = "blockchain-solana"
 version = "0.1.0"
 dependencies = [
  "rocket",
+ "serde",
+ "serde_json",
  "solana-sdk",
  "tokio",
 ]

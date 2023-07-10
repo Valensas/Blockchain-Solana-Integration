@@ -14,16 +14,16 @@ fn greet(name: &str) -> String {
 
 #[derive(Debug, Deserialize)]
 struct GreetingRequest {
-    name: String,
+    name: String
 }
 
-#[post("/greetj", data = "<request>")] //JSONu alıyor, GreetingRequest'e dönüştürüyor, sonra ismi basıyor
-fn greetj(request: &str) -> String {
+#[post("/greet", data = "<request>")] //JSONu alıyor, GreetingRequest'e dönüştürüyor, sonra ismi basıyor
+fn greet_json(request: &str) -> String {
     let g: GreetingRequest = serde_json::from_str(request).unwrap();
-    format!("Hello {}", g.name)
+    format!("Hello {}\n", g.name)
 }
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![hello, greet, greetj])
+    rocket::build().mount("/", routes![hello, greet, greet_json])
 }
