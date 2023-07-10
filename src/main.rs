@@ -1,44 +1,29 @@
 #[macro_use] extern crate rocket;
-use serde::{Deserialize, Serialize};
-/*use rocket::config::{Config, Environment};
-
-let config = Config::build(Environment::Staging)
-    .port(9234)
-    .finalize()?;
-
-
-
-    rocket::custom(config)
-    .mount("/", routes![/* .. */])
-    .launch();
-*/
+use serde::Deserialize;
 
 #[get("/hello")]
 fn hello() -> &'static str {
     "Hello world\n"
 }
 
-/*#[get("/greet?<name>")] //TODO: ? ne işe yarıyor
+#[get("/greet?<name>")] // Name'e göre printliyor
 fn greet(name: &str) -> String {
     format!("Hello {}\n", name)
-}*/
+}
 
-/*#[post("/greet")]
-fn greet(name: &str) -> String {
-    format!("Hello {}\n", name)
-}*/
 
 #[derive(Debug, Deserialize)]
 struct GreetingRequest {
     name: String,
 }
 
-#[post("/greet", data = "<request>")]
-fn greet(request: Json<GreetingRequest>) -> String {
-    format!("Hello {}", request.name)
+#[post("/greetj", data = "<request>")] //JSONu alıyor, GreetingRequest'e dönüştürüyor, sonra ismi basıyor
+fn greetj(request: &str) -> String {
+    let g: GreetingRequest = serde_json::from_str(request).unwrap();
+    format!("Hello {}", g.name)
 }
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![hello, greet])
+    rocket::build().mount("/", routes![hello, greet, greetj])
 }
