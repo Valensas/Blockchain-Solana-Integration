@@ -346,7 +346,7 @@ dependencies = [
 name = "blockchain-solana"
 version = "0.1.0"
 dependencies = [
- "mpc-rocket",
+ "rocket",
  "solana-sdk",
  "tokio",
 ]
@@ -1395,24 +1395,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mpc-prometheus"
-version = "0.1.0"
-source = "git+https://github.com/can-arikan/my-rust-prometheus.git#ead4f0b868122aa15b31c201c4384ab11c4d5532"
-dependencies = [
- "prometheus",
- "rocket",
-]
-
-[[package]]
-name = "mpc-rocket"
-version = "0.1.0"
-source = "git+https://github.com/can-arikan/my-rust-rocket.git#02f66c57ec560cf212ad2ab54c528626ef245229"
-dependencies = [
- "mpc-prometheus",
- "rocket",
-]
-
-[[package]]
 name = "multer"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1677,27 +1659,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prometheus"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "449811d15fbdf5ceb5c1144416066429cf82316e2ec8ce0c1f6f8a02e7bbcf8c"
-dependencies = [
- "cfg-if",
- "fnv",
- "lazy_static",
- "memchr",
- "parking_lot",
- "protobuf",
- "thiserror",
-]
-
-[[package]]
-name = "protobuf"
-version = "2.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
-
-[[package]]
 name = "qstring"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1917,7 +1878,6 @@ dependencies = [
  "rocket_codegen",
  "rocket_http",
  "serde",
- "serde_json",
  "state",
  "tempfile",
  "time",
