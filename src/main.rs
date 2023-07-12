@@ -7,12 +7,14 @@ use solana_sdk::commitment_config::CommitmentConfig;
 use serde_json::Value;
 //use bs58::decode;
 use solana_sdk::signature::Keypair;
-//use solana_sdk::instruction::Instruction;
+use solana_sdk::instruction::Instruction;
 //use rust_decimal::prelude::*;
 //use solana_sdk::system_instruction::SystemInstruction;
 use solana_sdk::transaction::Transaction;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::system_instruction::transfer_many;
+//use solana_sdk::system_instruction::transfer_many;
+use solana_sdk::system_instruction::transfer;
+//use std::arch::aarch64::LD;
 //use solana_sdk::pubkey::ParsePubkeyError;
 use std::str::FromStr;
 
@@ -103,29 +105,35 @@ fn sign_transaction(request: &str) -> String {
     let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
     let rpc_client = RpcClient::new(rpc_url);
     let mut receiving_amount = 0; // Tutar kontrolü için kullanılacak değişken
+    let mut counter = 0;
 
     let transaction_parameters: TransactionRequest = serde_json::from_str(request).unwrap(); // requesti objeye çevir
-    let mut to_and_amount: Vec<(Pubkey, u64)> = Vec::new(); // Kripto para alacak hesapların listesi
+    //let mut to_and_amount: Vec<(Pubkey, u64)> = Vec::new(); // Kripto para alacak hesapların listesi
     //let mut instruction: [Vec<Instruction>; 1];
     
     if transaction_parameters.from.len() as i32 !=  1{ // Kripto para gönderen adres sayısı bir değilse hata returnlüyor
         return String::from("Inappropriate number of from address");
     }
+    let instruction_array: [Instruction; 1000] = todo!();
 
+    let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress).unwrap(); // Gönderici adresi alıyor
+    let sending_amount = &transaction_parameters.from[0].amount; // Gönderilecek tutarı alıyor
 
     for transfer_param in &transaction_parameters.to{ // Kripto para alacak hesaplar ekleniyor listeye
         let to_address = Pubkey::from_str(&transfer_param.adress).unwrap();
         let amount = &transfer_param.amount;
+        instruction_array[counter] = transfer(&sender_address, &to_address, *amount);
         receiving_amount += amount;
-        to_and_amount.push((to_address, *amount));
+        counter += 1;
+        //to_and_amount.push((to_address, *amount));
+
     }
 
     // let array_to_and_amount = to_and_amount.try_into().unwrap();
 
-    let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress).unwrap(); // Gönderici adresi alıyor
-    let amount = &transaction_parameters.from[0].amount; // Gönderilecek tutarı alıyor
+    
 
-    if *amount != receiving_amount{ // Gönderilen tutar ile alınacak tutar eşit değilse hata returnlüyor
+    if *sending_amount != receiving_amount{ // Gönderilen tutar ile alınacak tutar eşit değilse hata returnlüyor
         return String::from("Trying to send and receive different amounts");
     }
 
@@ -147,7 +155,8 @@ fn sign_transaction(request: &str) -> String {
     let keypair = Keypair::from_bytes(&private_key).unwrap(); // new_signed_with_payer için gönderici adresin private key'i alındı ve keypair oluşturuldu
 
     let mut tx = Transaction::new_signed_with_payer(
-        transfer_many(&sender_address, to_and_amount.try_into().unwrap()).try_into().unwrap(), // Temel sıkıntı burada
+        &instruction_array,
+        //transfer_many(&sender_address, to_and_amount.try_into().unwrap()).try_into().unwrap(), // Temel sıkıntı burada
         Some(&sender_address),
         &[&keypair],
         blockhash
