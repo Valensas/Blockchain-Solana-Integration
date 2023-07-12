@@ -7,10 +7,14 @@ edition = "2021"
 
 [dependencies]
 solana-sdk = "1.16.2"
-
-rocket = "=0.5.0-rc.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 solana-client = "1.16.2"
 rust_decimal = "1.30"
 bs58 = "0.5.0"
+spl-token = "4.0.0"
+solana-program = "1.16.1"
+
+[dependencies.rocket]
+version = "=0.5.0-rc.3"
+features = ["json"]
