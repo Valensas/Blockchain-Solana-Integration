@@ -106,8 +106,6 @@ Sanırım amountların bir de contracttaki precision ile çarpmak gerekiyormuş 
 */
 fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> {
 
-    let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
-    let rpc_client = RpcClient::new(rpc_url);
     let mut receiving_amount = 0; // Tutar kontrolü için kullanılacak değişken
     let transaction_parameters: TransactionRequest = serde_json::from_str(request).unwrap(); // requesti objeye çevir
     
@@ -148,6 +146,7 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
             blockhash
         );
 
+        
         let signature = rpc_client.send_and_confirm_transaction(&tx).unwrap(); // İmza alınıyor
 
         let transaction_hash = Transaction::verify_and_hash_message(&tx).unwrap();// Transaction hash alınıyor
@@ -161,9 +160,9 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
     
     else{
         
-        let contract = Pubkey::from_str(&transaction_parameters.contract.unwrap());
+        let contract = Pubkey::from_str(&transaction_parameters.contract.unwrap()).unwrap();
         
-        let mut spl_instructions: Vec<Instruction> = vec::new();
+        let mut spl_instructions: Vec<Instruction> = Vec::new();
 
         for transfer_param in &transaction_parameters.to{ // Kripto para alacak hesaplar ekleniyor listeye
             let to_address = Pubkey::from_str(&transfer_param.adress).unwrap();
