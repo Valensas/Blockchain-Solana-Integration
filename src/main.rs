@@ -21,6 +21,7 @@ use solana_sdk::system_instruction::transfer_many;
 use std::str::FromStr;
 use spl_token::instruction::transfer;
 use solana_program::instruction::Instruction;
+use solana_sdk::signature::Signature;
 
 
 #[get("/hello")]
@@ -46,7 +47,7 @@ fn greet_json(request: &str) -> String {
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block])
+    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block, sign_transaction])
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -94,7 +95,7 @@ struct TransactionRequest { // Request Objesi
 
 #[derive(Debug, Serialize, Deserialize)]
 struct TransactionResponse { // Response için obje
-    signedTransaction: String,
+    signedTransaction: Vec<Signature>,
     txnHash: String
 }
 
@@ -106,6 +107,8 @@ Sanırım amountların bir de contracttaki precision ile çarpmak gerekiyormuş 
 */
 fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> {
 
+    let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
+    let rpc_client = RpcClient::new(rpc_url);
     let mut receiving_amount = 0; // Tutar kontrolü için kullanılacak değişken
     let transaction_parameters: TransactionRequest = serde_json::from_str(request).unwrap(); // requesti objeye çevir
     
@@ -114,10 +117,17 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
         return Err(String::from("Inappropriate number of from address"));
     }
 
-    
+    let blockhash = rpc_client.get_latest_blockhash().unwrap();
 
     let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress).unwrap(); // Gönderici adresi alıyor
     let sending_amount = &transaction_parameters.from[0].amount; // Gönderilecek tutarı alıyor
+
+
+    let mut keypair_string = transaction_parameters.from[0].adress.clone();
+    keypair_string.push_str(&transaction_parameters.private_key);
+
+    let keypair: Keypair = Keypair::from_base58_string(&keypair_string);
+
 
     if transaction_parameters.contract.is_none(){
         let mut to_and_amount: Vec<(Pubkey, u64)> = Vec::new(); // Kripto para alacak hesapların listesi
@@ -134,25 +144,25 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
             return Err(String::from("Trying to send and receive different amounts"));
         }
 
-        let blockhash = rpc_client.get_latest_blockhash().unwrap();
-        let private_key = bs58::decode(&transaction_parameters.private_key).into_vec().unwrap(); // 
-        let keypair = Keypair::from_bytes(&private_key).unwrap(); // new_signed_with_payer için gönderici adresin private key'i alındı ve keypair oluşturuldu 
-        let instruction_array = transfer_many(&sender_address, to_and_amount.as_slice()).as_slice();
+        
+        
+        let instruction_array = transfer_many(&sender_address, to_and_amount.as_slice());
 
-        let mut tx = Transaction::new_signed_with_payer(
-            instruction_array,
+        let tx = Transaction::new_signed_with_payer(
+            &instruction_array,
             Some(&sender_address),
             &[&keypair],
             blockhash
         );
 
         
-        let signature = rpc_client.send_and_confirm_transaction(&tx).unwrap(); // İmza alınıyor
-
+        //let signature = rpc_client.send_and_confirm_transaction(&tx).unwrap(); // İmza alınıyor
+        let signatures = tx.clone().signatures;
         let transaction_hash = Transaction::verify_and_hash_message(&tx).unwrap();// Transaction hash alınıyor
+
         let response: TransactionResponse = TransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
             txnHash: transaction_hash.to_string(),
-            signedTransaction: signature.to_string()
+            signedTransaction: signatures
         };
         
         return Ok(Json(response)); // Returnleniyor
@@ -160,23 +170,43 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
     
     else{
         
+        let mut instruction: Vec<Instruction> = Vec::new();
         let contract = Pubkey::from_str(&transaction_parameters.contract.unwrap()).unwrap();
         
-        let mut spl_instructions: Vec<Instruction> = Vec::new();
+        let spl_instructions: Vec<Instruction> = Vec::new();
 
-        for transfer_param in &transaction_parameters.to{ // Kripto para alacak hesaplar ekleniyor listeye
+        for transfer_param in &transaction_parameters.to{ 
+
             let to_address = Pubkey::from_str(&transfer_param.adress).unwrap();
             let amount = &transfer_param.amount;
-            let ix = transfer(&contract, &sender_address, 
-                    &to_address, &sender_address, &[&sender_address, &to_address], *amount).unwrap();
+
+            let ix = transfer(&contract, &sender_address,
+                    &to_address, &sender_address, &[], *amount).unwrap();
+            instruction.push(ix);
             
-            invoke(&ix, &[&sender_address, &to_address, &sender_address, &contract]);
             receiving_amount += amount;
         }
 
         if *sending_amount != receiving_amount{ // Gönderilen tutar ile alınacak tutar eşit değilse hata returnlüyor
             return Err(String::from("Trying to send and receive different amounts"));
         }
+
+        let tx = Transaction::new_signed_with_payer(
+            &instruction,
+            Some(&sender_address),
+            &[&keypair],
+            blockhash
+        );
+        
+        let signatures = tx.clone().signatures;
+        let transaction_hash = Transaction::verify_and_hash_message(&tx).unwrap();// Transaction hash alınıyor
+
+        let response: TransactionResponse = TransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
+            txnHash: transaction_hash.to_string(),
+            signedTransaction: signatures
+        };
+        
+        return Ok(Json(response)); // Returnleniyor
 
     }
 
