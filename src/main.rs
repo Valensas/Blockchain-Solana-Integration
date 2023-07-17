@@ -1,6 +1,8 @@
+#![allow(non_snake_case)]
 #[macro_use] extern crate rocket;
 //use rocket::futures::executor::block_on;
 
+use rust_base58::{ToBase58, FromBase58};
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -22,6 +24,7 @@ use std::str::FromStr;
 use spl_token::instruction::transfer;
 use solana_program::instruction::Instruction;
 use solana_sdk::signature::Signature;
+use base64::encode;
 
 
 #[get("/hello")]
@@ -95,7 +98,7 @@ struct TransactionRequest { // Request Objesi
 
 #[derive(Debug, Serialize, Deserialize)]
 struct TransactionResponse { // Response için obje
-    signedTransaction: Vec<Signature>,
+    signedTransaction: String,
     txnHash: String
 }
 
@@ -117,19 +120,23 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
         return Err(String::from("Inappropriate number of from address"));
     }
 
-    let blockhash = rpc_client.get_latest_blockhash().unwrap();
 
     let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress).unwrap(); // Gönderici adresi alıyor
     let sending_amount = &transaction_parameters.from[0].amount; // Gönderilecek tutarı alıyor
 
 
-    let mut keypair_string = transaction_parameters.from[0].adress.clone();
-    keypair_string.push_str(&transaction_parameters.private_key);
 
-    let keypair: Keypair = Keypair::from_base58_string(&keypair_string);
+    let privkey_string = transaction_parameters.private_key.clone();
+    let mut byte_array = privkey_string.from_base58().unwrap();
+    for i in &transaction_parameters.from[0].adress.from_base58().unwrap(){
+        byte_array.push(*i);
+    }
 
-
+    let keypair: Keypair = Keypair::from_bytes(&byte_array).unwrap();
+    let blockhash = rpc_client.get_latest_blockhash().unwrap();
+    
     if transaction_parameters.contract.is_none(){
+
         let mut to_and_amount: Vec<(Pubkey, u64)> = Vec::new(); // Kripto para alacak hesapların listesi
         for transfer_param in &transaction_parameters.to{ // Kripto para alacak hesaplar ekleniyor listeye
             let to_address = Pubkey::from_str(&transfer_param.adress).unwrap();
@@ -156,13 +163,12 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
         );
 
         
-        //let signature = rpc_client.send_and_confirm_transaction(&tx).unwrap(); // İmza alınıyor
-        let signatures = tx.clone().signatures;
-        let transaction_hash = Transaction::verify_and_hash_message(&tx).unwrap();// Transaction hash alınıyor
+        let txnHash = Transaction::verify_and_hash_message(&tx).unwrap().to_string();// Transaction hash alınıyor
+        let signedTransaction = serde_json::to_string(&tx).unwrap(); // Deserialize this with serde_json::from_str::<Transaction>("Transaction String");
 
         let response: TransactionResponse = TransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
-            txnHash: transaction_hash.to_string(),
-            signedTransaction: signatures
+            txnHash,
+            signedTransaction
         };
         
         return Ok(Json(response)); // Returnleniyor
@@ -172,8 +178,6 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
         
         let mut instruction: Vec<Instruction> = Vec::new();
         let contract = Pubkey::from_str(&transaction_parameters.contract.unwrap()).unwrap();
-        
-        let spl_instructions: Vec<Instruction> = Vec::new();
 
         for transfer_param in &transaction_parameters.to{ 
 
@@ -197,13 +201,13 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
             &[&keypair],
             blockhash
         );
-        
-        let signatures = tx.clone().signatures;
-        let transaction_hash = Transaction::verify_and_hash_message(&tx).unwrap();// Transaction hash alınıyor
+
+        let txnHash = Transaction::verify_and_hash_message(&tx).unwrap().to_string();// Transaction hash alınıyor
+        let signedTransaction = serde_json::to_string(&tx).unwrap(); // Deserialize this with serde_json::from_str::<Transaction>("Transaction String");
 
         let response: TransactionResponse = TransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
-            txnHash: transaction_hash.to_string(),
-            signedTransaction: signatures
+            txnHash,
+            signedTransaction
         };
         
         return Ok(Json(response)); // Returnleniyor
@@ -211,3 +215,27 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
     }
 
 }
+
+/*#[derive(Debug, Serialize, Deserialize)]
+struct SendTransactionRequest {
+    signedTransaction: String,
+}
+#[derive(Debug, Serialize, Deserialize)]
+struct SendTransactionResponse {
+    txnHash: String,
+}
+#[post("/transactions/send", data = "<request>")]
+fn send_transaction(request: &str) -> Result<Json<SendTransactionResponse>, String> {
+    let signature: SendTransactionRequest = serde_json::from_str(request).unwrap(); // requesti objeye çevir
+    let signature_bytes = bs58::decode(&signature.signedTransaction).into_vec().unwrap();
+    let signature_obj = Signature::new(&signature_bytes);
+    let transaction_hash = Signature::new(&signature_obj.to_bytes()).to_string(); // Transaction hashi alıyor
+
+    let response: SendTransactionResponse = SendTransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
+        txnHash: transaction_hash.to_string(),
+    };
+    
+    return Ok(Json(response)); // Returnleniyor
+
+}
+*/
