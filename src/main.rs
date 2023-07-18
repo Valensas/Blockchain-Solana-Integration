@@ -59,24 +59,27 @@ fn get_latest_block() -> String {
         Err(_) => String::from("Slot not found")
     }
 }
-
+//*************************************************ONUR SEND TRANSACTION********************************************************
 #[derive(Debug, Serialize, Deserialize)]
-struct SendTransactionRequest {
+struct SendTransactionRequest {  // Request için obje oluşturuldu
     signedTransaction: String,
 }
 #[derive(Debug, Serialize, Deserialize)]
-struct SendTransactionResponse {
+struct SendTransactionResponse { // Response için obje oluşturuldu
     txnHash: String,
 }
+
 #[post("/transactions/send", data = "<request>")]
 fn send_transaction(request: &str) -> Result<Json<SendTransactionResponse>, String>{
     let transaction_parameters: SendTransactionRequest = serde_json::from_str(request).unwrap(); // requesti objeye çevir
-    let tx: Transaction = serde_json::from_str::<Transaction>(&transaction_parameters.signedTransaction).unwrap(); // requesti objeye çevir
-    let txnHash = tx.signatures[0].to_string();
+    let tx: Transaction = serde_json::from_str::<Transaction>(&transaction_parameters.signedTransaction).unwrap(); // Transaction objesi yarat
+    let txnHash = tx.signatures[0].to_string(); // Signature'ı Stringe çevir
 
-    let response: SendTransactionResponse = SendTransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
+    let response: SendTransactionResponse = SendTransactionResponse{ // Response objesi oluşturuluyor
         txnHash
     };
     
     return Ok(Json(response)); // Returnleniyor
 }
+
+//*************************************************ONUR SEND TRANSACTION********************************************************
