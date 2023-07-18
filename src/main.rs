@@ -1,6 +1,6 @@
 #[macro_use] extern crate rocket;
 use serde::{Deserialize, Serialize};
-use serde_json::{Result, Value};
+use serde_json::Value;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::transaction::Transaction;
@@ -69,7 +69,7 @@ struct SendTransactionResponse {
     txnHash: String,
 }
 #[post("/transactions/send", data = "<request>")]
-fn send_transaction(request: &str) -> Result<Json<SendTransactionResponse>, String> {
+fn send_transaction(request: &str) -> Result<Json<SendTransactionResponse>, String>{
     let transaction_parameters: SendTransactionRequest = serde_json::from_str(request).unwrap(); // requesti objeye çevir
     let tx: Transaction = serde_json::from_str::<Transaction>(&transaction_parameters.signedTransaction).unwrap(); // requesti objeye çevir
     let txnHash = tx.signatures[0].to_string();
