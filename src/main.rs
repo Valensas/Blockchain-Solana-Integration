@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Result, Value};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
-use serde_json::{Result, Value};
 use solana_sdk::transaction::Transaction;
+use rocket::serde::json::Json;
 
 #[get("/hello")]
 fn hello() -> &'static str {
