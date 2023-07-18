@@ -50,7 +50,7 @@ fn greet_json(request: &str) -> String {
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block, sign_transaction])
+    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block, sign_transaction, send_transaction])
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -84,15 +84,14 @@ fn get_latest_block() -> String {
 #[derive(Debug, Serialize, Deserialize)]
 struct TransactionInfo {
     adress: String,
-    //#[serde(with = "rust_decimal::serde::str")]
-    amount: u64
+    amount: u64,
+    contract: Option<String>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct TransactionRequest { // Request Objesi
     from: Vec<TransactionInfo>,
     to: Vec<TransactionInfo>,
-    contract: Option<String>,
     private_key: String
 }
 
@@ -112,7 +111,6 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
 
     let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
     let rpc_client = RpcClient::new(rpc_url);
-    let mut receiving_amount = 0; // Tutar kontrolü için kullanılacak değişken
     let transaction_parameters: TransactionRequest = serde_json::from_str(request).unwrap(); // requesti objeye çevir
     
     
@@ -122,7 +120,7 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
 
 
     let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress).unwrap(); // Gönderici adresi alıyor
-    let sending_amount = &transaction_parameters.from[0].amount; // Gönderilecek tutarı alıyor
+
 
 
 
@@ -134,21 +132,48 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
 
     let keypair: Keypair = Keypair::from_bytes(&byte_array).unwrap();
     let blockhash = rpc_client.get_latest_blockhash().unwrap();
+
+    let mut instructions: Vec<Instruction> = Vec::new();
+    for transfer_param in &transaction_parameters.to{
+        let to_address = Pubkey::from_str(&transfer_param.adress).unwrap();
+        let amount = &transfer_param.amount;
+        if transfer_param.contract.is_none(){
+            instructions.push(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount))
+        }
+        else{
+            let contract = Pubkey::from_str(transfer_param.contract.as_ref().unwrap()).unwrap();
+            let ix = transfer(&contract, &sender_address,
+                &to_address, &sender_address, &[], *amount).unwrap();
+            instructions.push(ix);
+        }
+    }
+
+    let tx = Transaction::new_signed_with_payer(
+        &instructions,
+        Some(&sender_address),
+        &[&keypair],
+        blockhash
+    );
     
-    if transaction_parameters.contract.is_none(){
+    let signatures = &tx.signatures;
+    let txnHash = signatures[0].to_string();
+    //let txnHash = Transaction::verify_and_hash_message(&tx).unwrap().to_string();// Transaction hash alınıyor
+    rpc_client.send_and_confirm_transaction(&tx).unwrap();
+    let signedTransaction = serde_json::to_string(&tx).unwrap(); // Deserialize this with serde_json::from_str::<Transaction>("Transaction String");
+    let response: TransactionResponse = TransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
+        txnHash,
+        signedTransaction
+    };
+    
+    return Ok(Json(response)); // Returnleniyor
+
+    /*if transaction_parameters.contract.is_none(){
 
         let mut to_and_amount: Vec<(Pubkey, u64)> = Vec::new(); // Kripto para alacak hesapların listesi
         for transfer_param in &transaction_parameters.to{ // Kripto para alacak hesaplar ekleniyor listeye
             let to_address = Pubkey::from_str(&transfer_param.adress).unwrap();
             let amount = &transfer_param.amount;
             to_and_amount.push((to_address, *amount));
-            receiving_amount += amount;
-        }
-
-        
-
-        if *sending_amount != receiving_amount{ // Gönderilen tutar ile alınacak tutar eşit değilse hata returnlüyor
-            return Err(String::from("Trying to send and receive different amounts"));
         }
 
         
@@ -162,7 +187,7 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
             blockhash
         );
 
-        
+        rpc_client.send_and_confirm_transaction(&tx).unwrap();
         let txnHash = Transaction::verify_and_hash_message(&tx).unwrap().to_string();// Transaction hash alınıyor
         let signedTransaction = serde_json::to_string(&tx).unwrap(); // Deserialize this with serde_json::from_str::<Transaction>("Transaction String");
 
@@ -188,11 +213,6 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
                     &to_address, &sender_address, &[], *amount).unwrap();
             instruction.push(ix);
             
-            receiving_amount += amount;
-        }
-
-        if *sending_amount != receiving_amount{ // Gönderilen tutar ile alınacak tutar eşit değilse hata returnlüyor
-            return Err(String::from("Trying to send and receive different amounts"));
         }
 
         let tx = Transaction::new_signed_with_payer(
@@ -212,30 +232,9 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
         
         return Ok(Json(response)); // Returnleniyor
 
-    }
+    }*/
 
 }
 
-/*#[derive(Debug, Serialize, Deserialize)]
-struct SendTransactionRequest {
-    signedTransaction: String,
-}
-#[derive(Debug, Serialize, Deserialize)]
-struct SendTransactionResponse {
-    txnHash: String,
-}
-#[post("/transactions/send", data = "<request>")]
-fn send_transaction(request: &str) -> Result<Json<SendTransactionResponse>, String> {
-    let signature: SendTransactionRequest = serde_json::from_str(request).unwrap(); // requesti objeye çevir
-    let signature_bytes = bs58::decode(&signature.signedTransaction).into_vec().unwrap();
-    let signature_obj = Signature::new(&signature_bytes);
-    let transaction_hash = Signature::new(&signature_obj.to_bytes()).to_string(); // Transaction hashi alıyor
 
-    let response: SendTransactionResponse = SendTransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
-        txnHash: transaction_hash.to_string(),
-    };
-    
-    return Ok(Json(response)); // Returnleniyor
 
-}
-*/
