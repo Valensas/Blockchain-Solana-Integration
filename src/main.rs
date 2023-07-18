@@ -50,7 +50,7 @@ fn greet_json(request: &str) -> String {
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block, sign_transaction, send_transaction])
+    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block, sign_transaction])
 }
 
 #[derive(Debug, Serialize, Deserialize)]
