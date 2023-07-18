@@ -81,15 +81,16 @@ fn get_latest_block() -> String {
     }
 }
 
+
 #[derive(Debug, Serialize, Deserialize)]
-struct TransactionInfo {
+struct TransactionInfo { // Transaction bilgilerini içeren obje
     adress: String,
     amount: u64,
     contract: Option<String>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct TransactionRequest { // Request Objesi
+struct TransactionRequest { // Requestteki parametrelerle obje
     from: Vec<TransactionInfo>,
     to: Vec<TransactionInfo>,
     private_key: String
@@ -102,65 +103,54 @@ struct TransactionResponse { // Response için obje
 }
 
 #[post("/transactions/sign", data = "<request>")]
-/*
-Örnek requestte birden fazla gönderici hesap olamayacağı ve oradaki private key gönderici adresin private keyi olarak varsayarak yazdım. 
-Ayrıca amountları u64 olarak assume ettim solanadaki çoğu fonksiyonda öyle aldığı için. 
-Sanırım amountların bir de contracttaki precision ile çarpmak gerekiyormuş ama emin değilim
-*/
 fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> {
 
-    let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
-    let rpc_client = RpcClient::new(rpc_url);
-    let transaction_parameters: TransactionRequest = serde_json::from_str(request).unwrap(); // requesti objeye çevir
+    let rpc_url = "https://api.devnet.solana.com".to_string();
+    let rpc_client = RpcClient::new(rpc_url); // RPC Client oluşturuldu
+    let transaction_parameters: TransactionRequest = serde_json::from_str(request).unwrap(); // Request objeye çevrildi
     
-    
-    if transaction_parameters.from.len() as i32 !=  1{ // Kripto para gönderen adres sayısı bir değilse hata returnlüyor
-        return Err(String::from("Inappropriate number of from address"));
-    }
-
 
     let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress).unwrap(); // Gönderici adresi alıyor
 
 
+    let privkey_string = transaction_parameters.private_key.clone(); // Private Key alınıyor
+    let mut byte_array = privkey_string.from_base58().unwrap(); // Private Key byte arraye dönüştürülüyor
 
-
-    let privkey_string = transaction_parameters.private_key.clone();
-    let mut byte_array = privkey_string.from_base58().unwrap();
-    for i in &transaction_parameters.from[0].adress.from_base58().unwrap(){
+    for i in &transaction_parameters.from[0].adress.from_base58().unwrap(){ // Oluşturulan byte arraye public keyin de byte şekli ekleniyor
         byte_array.push(*i);
     }
 
-    let keypair: Keypair = Keypair::from_bytes(&byte_array).unwrap();
-    let blockhash = rpc_client.get_latest_blockhash().unwrap();
+    let keypair: Keypair = Keypair::from_bytes(&byte_array).unwrap(); // Bu byte array ile Keypair objesi oluşturuluyor
+    let blockhash = rpc_client.get_latest_blockhash().unwrap(); // Recent blockhash alınıyor
 
-    let mut instructions: Vec<Instruction> = Vec::new();
+    let mut instructions: Vec<Instruction> = Vec::new(); // Instructions vektörü oluşturuluyor
+
     for transfer_param in &transaction_parameters.to{
         let to_address = Pubkey::from_str(&transfer_param.adress).unwrap();
         let amount = &transfer_param.amount;
-        if transfer_param.contract.is_none(){
-            instructions.push(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount))
+        if transfer_param.contract.is_none(){ // Contract adresi yok ise
+            instructions.push(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount)) // Instruction oluşturulup vektöre pushlanıyor
         }
-        else{
+        else{ // Contract adresi var ise
             let contract = Pubkey::from_str(transfer_param.contract.as_ref().unwrap()).unwrap();
-            let ix = transfer(&contract, &sender_address,
+            let ix = transfer(&contract, &sender_address, // Instruction (contract adresi verilerek) oluşturulup vektöre pushlanıyor
                 &to_address, &sender_address, &[], *amount).unwrap();
             instructions.push(ix);
         }
     }
 
-    let tx = Transaction::new_signed_with_payer(
+    let tx = Transaction::new_signed_with_payer( // Transaction objesi oluşturuluyor
         &instructions,
         Some(&sender_address),
         &[&keypair],
         blockhash
     );
     
-    let signatures = &tx.signatures;
-    let txnHash = signatures[0].to_string();
-    //let txnHash = Transaction::verify_and_hash_message(&tx).unwrap().to_string();// Transaction hash alınıyor
-    rpc_client.send_and_confirm_transaction(&tx).unwrap();
-    let signedTransaction = serde_json::to_string(&tx).unwrap(); // Deserialize this with serde_json::from_str::<Transaction>("Transaction String");
-    let response: TransactionResponse = TransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
+    let signatures = &tx.signatures; // İçindeki imza alınıyor
+    let txnHash = signatures[0].to_string(); // İmza stringe çevriliyor
+
+    let signedTransaction = serde_json::to_string(&tx).unwrap(); // tx objesi stringe çevriliyor
+    let response: TransactionResponse = TransactionResponse{ // Response objesi oluşturuluyor
         txnHash,
         signedTransaction
     };
