@@ -1,8 +1,10 @@
 #[macro_use] extern crate rocket;
 use serde::{Deserialize, Serialize};
+use serde_json::{Result, Value};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use serde_json::{Result, Value};
+use solana_sdk::transaction::Transaction;
 
 #[get("/hello")]
 fn hello() -> &'static str {
@@ -27,7 +29,7 @@ fn greet_json(request: &str) -> String {
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block])
+    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block, send_transaction])
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,4 +58,25 @@ fn get_latest_block() -> String {
         }
         Err(_) => String::from("Slot not found")
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SendTransactionRequest {
+    signedTransaction: String,
+}
+#[derive(Debug, Serialize, Deserialize)]
+struct SendTransactionResponse {
+    txnHash: String,
+}
+#[post("/transactions/send", data = "<request>")]
+fn send_transaction(request: &str) -> Result<Json<SendTransactionResponse>, String> {
+    let transaction_parameters: SendTransactionRequest = serde_json::from_str(request).unwrap(); // requesti objeye çevir
+    let tx: Transaction = serde_json::from_str::<Transaction>(&transaction_parameters.signedTransaction).unwrap(); // requesti objeye çevir
+    let txnHash = tx.signatures[0].to_string();
+
+    let response: SendTransactionResponse = SendTransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
+        txnHash
+    };
+    
+    return Ok(Json(response)); // Returnleniyor
 }
