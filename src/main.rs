@@ -70,12 +70,16 @@ struct SendTransactionResponse { // Response için obje oluşturuldu
 }
 
 #[post("/transactions/send", data = "<transaction_parameters>")]
-fn send_transaction(transaction_parameters: Json<SendTransactionRequest>) -> Result<Json<SendTransactionResponse>, String>{
+fn send_transaction(transaction_parameters: Json<SendTransactionRequest>) -> Result<Json<SendTransactionResponse>, solana_client::client_error::ClientError>{
 
     let tx: Transaction = serde_json::from_str::<Transaction>(&transaction_parameters.signedTransaction).unwrap(); // Transaction objesi yarat
     let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
     let rpc_client = RpcClient::new(rpc_url);
-    let txnHash = rpc_client.send_and_confirm_transaction(&tx).unwrap().to_string(); // Signature'ı Stringe çevir
+    let txnHash: Result<solana_sdk::signature::Signature, solana_client::client_error::ClientError> = rpc_client.send_and_confirm_transaction(&tx); // Signature'ı Stringe çevir
+    let txnHash = match txnHash{
+        Ok(hash) => hash.to_string(),
+        Err(err) => return Err(err)
+    };
 
     let response: SendTransactionResponse = SendTransactionResponse{ // Response objesi oluşturuluyor
         txnHash
