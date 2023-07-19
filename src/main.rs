@@ -101,17 +101,19 @@ fn sign_transaction(transaction_parameters: Json<TransactionRequest>) -> Result<
         return Err(String::from("No item in from part"));
     }
 
+    if transaction_parameters.to.is_empty(){
+        return Err(String::from("No item in to part"));
+    }
+
     let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress).unwrap(); // Gönderici adresi alıyor
 
 
-    let privkey_string = transaction_parameters.private_key.clone(); // Private Key alınıyor
-    let mut byte_array = privkey_string.from_base58().unwrap(); // Private Key byte arraye dönüştürülüyor
+    let privkey = transaction_parameters.private_key.clone(); // Private Key alınıyor
+    let mut bytes_of_privatekey = privkey.from_base58().unwrap(); // Private Key byte arraye dönüştürülüyor
 
-    for i in &transaction_parameters.from[0].adress.from_base58().unwrap(){ // Oluşturulan byte arraye public keyin de byte şekli ekleniyor
-        byte_array.push(*i);
-    }
+    bytes_of_privatekey.append(& mut transaction_parameters.from[0].adress.from_base58().unwrap());
 
-    let keypair: Keypair = Keypair::from_bytes(&byte_array).unwrap(); // Bu byte array ile Keypair objesi oluşturuluyor
+    let keypair: Keypair = Keypair::from_bytes(&bytes_of_privatekey).unwrap(); // Bu byte array ile Keypair objesi oluşturuluyor
     let blockhash = rpc_client.get_latest_blockhash().unwrap(); // Recent blockhash alınıyor
 
     let mut instructions: Vec<Instruction> = Vec::new(); // Instructions vektörü oluşturuluyor
