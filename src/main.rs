@@ -81,7 +81,7 @@ fn get_latest_block() -> String {
     }
 }
 
-
+// **************************************** Onur Sign Transaction *************************************************************
 #[derive(Debug, Serialize, Deserialize)]
 struct TransactionInfo { // Transaction bilgilerini içeren obje
     adress: String,
@@ -157,74 +157,8 @@ fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> 
     
     return Ok(Json(response)); // Returnleniyor
 
-    /*if transaction_parameters.contract.is_none(){
-
-        let mut to_and_amount: Vec<(Pubkey, u64)> = Vec::new(); // Kripto para alacak hesapların listesi
-        for transfer_param in &transaction_parameters.to{ // Kripto para alacak hesaplar ekleniyor listeye
-            let to_address = Pubkey::from_str(&transfer_param.adress).unwrap();
-            let amount = &transfer_param.amount;
-            to_and_amount.push((to_address, *amount));
-        }
-
-        
-        
-        let instruction_array = transfer_many(&sender_address, to_and_amount.as_slice());
-
-        let tx = Transaction::new_signed_with_payer(
-            &instruction_array,
-            Some(&sender_address),
-            &[&keypair],
-            blockhash
-        );
-
-        rpc_client.send_and_confirm_transaction(&tx).unwrap();
-        let txnHash = Transaction::verify_and_hash_message(&tx).unwrap().to_string();// Transaction hash alınıyor
-        let signedTransaction = serde_json::to_string(&tx).unwrap(); // Deserialize this with serde_json::from_str::<Transaction>("Transaction String");
-
-        let response: TransactionResponse = TransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
-            txnHash,
-            signedTransaction
-        };
-        
-        return Ok(Json(response)); // Returnleniyor
-    }
-    
-    else{
-        
-        let mut instruction: Vec<Instruction> = Vec::new();
-        let contract = Pubkey::from_str(&transaction_parameters.contract.unwrap()).unwrap();
-
-        for transfer_param in &transaction_parameters.to{ 
-
-            let to_address = Pubkey::from_str(&transfer_param.adress).unwrap();
-            let amount = &transfer_param.amount;
-
-            let ix = transfer(&contract, &sender_address,
-                    &to_address, &sender_address, &[], *amount).unwrap();
-            instruction.push(ix);
-            
-        }
-
-        let tx = Transaction::new_signed_with_payer(
-            &instruction,
-            Some(&sender_address),
-            &[&keypair],
-            blockhash
-        );
-
-        let txnHash = Transaction::verify_and_hash_message(&tx).unwrap().to_string();// Transaction hash alınıyor
-        let signedTransaction = serde_json::to_string(&tx).unwrap(); // Deserialize this with serde_json::from_str::<Transaction>("Transaction String");
-
-        let response: TransactionResponse = TransactionResponse{ // Response objesi oluşturuluyor hash ve signature ile
-            txnHash,
-            signedTransaction
-        };
-        
-        return Ok(Json(response)); // Returnleniyor
-
-    }*/
 
 }
 
 
-
+// **************************************** Onur Sign Transaction *************************************************************
