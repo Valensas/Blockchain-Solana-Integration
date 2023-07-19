@@ -2,9 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::commitment_config::CommitmentConfig;
-use rust_decimal::prelude::*;
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use rocket::serde::json::Json;
+use bs58;
 /*use solana_transaction_status::{
     EncodedConfirmedBlock, EncodedTransactionWithStatusMeta, EncodedConfirmedTransactionWithStatusMeta, TransactionStatus,
     UiConfirmedBlock, UiTransactionEncoding,
@@ -33,7 +33,7 @@ fn greet_json(request: &str) -> String {
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block, scan_block_transactions_from_slot])
+    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block, get_wallet_balance])
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,94 +64,29 @@ fn get_latest_block() -> Result<Json<Block>, String> {
     }
 }
 
-/************************************* DOĞA ****************************************************/
 
 #[derive(Debug, Serialize, Deserialize)]
-struct TransactionInfo { // Onur ile ortak
-    adress: String,
-    //#[serde(with = "rust_decimal::serde::str")]
-    amount: Decimal
+struct Balance {
+    balance: u64
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Transaction {
-    from: TransactionInfo,
-    to: TransactionInfo,
-    hash: String,
-    status: String,
-    contract: String
-}
+#[get("/address/<address>/balance")]
+fn get_wallet_balance(address: &str) -> Result<Json<Balance>, String>{
+    let rpc_url: String = "https://api.devnet.solana.com".to_string();
+    let rpc_client: RpcClient = RpcClient::new(rpc_url);
 
-#[derive(Debug, Serialize, Deserialize)]
-struct BlockTransactions {
-    height: u64,
-    hash: String,
-    transactions: Vec<Transaction>
-}
+    let mut pubkey_bytes_array: [u8;32] = [0;32]; // 32 elemanlı array oluşturmam gerekiyor çünkü Pubkey::new_from_array fonksiyonu kesin olarak bunu istiyor
+    let pubkey_bytes_vec = bs58::decode(address).into_vec().unwrap(); // Bu vektörün içindekileri arraye koyuyorum aşağıdaki döngüde
 
-#[get("/blocks/<slot>")]
-fn scan_block_transactions_from_slot(slot: u64) -> String {
-    let rpc_url = "https://api.devnet.solana.com".to_string(); // Solana url
-    let rpc_client = RpcClient::new(rpc_url);
-
-    //let commitment_config = CommitmentConfig::finalized(); //TODO: burada gerek var mı? kullanmadım şimdilik
-
-    match rpc_client.get_block(slot) { //Verilen slot'a göre chainden block bilgileri alınıyor 
-        Ok(block) => {
-            let block_hash = block.blockhash;
-            let block_height = block.block_height.unwrap();
-            //let transactions: Vec<EncodedTransactionWithStatusMeta> = block.transactions;
-
-            "hey".to_string()
-            //transactions.into_iter().to_string().collect::<String>()
-
-            /*let block_str = serde_json::to_string(&block).unwrap(); // Son blockun bilgileri stringe dönüştürüldü
-            let block_json: Value = serde_json::from_str(&block_str).unwrap(); // Son blockun bilgileri JSONa dönüştürüldü
-
-            let block_height: u64 = block_json["blockHeight"].to_string().parse::<u64>().unwrap(); // BlockHeight alındı
-            let block_hash = block_json["blockhash"].to_string(); // Blockhash alındı
-
-            block_json["transactions"].to_string()*/
-        }
-        Err(_) => String::from("Block with given slot not found!\n")
+    for byte in 0..pubkey_bytes_vec.len(){
+        pubkey_bytes_array[byte] = pubkey_bytes_vec[byte];
     }
+
+    let pubkey = Pubkey::new_from_array(pubkey_bytes_array); // Pubkey objesi yaratılıyor
+
+    let balance = rpc_client.get_balance(&pubkey).unwrap(); // O pubkeyin balanceı alınıyor
+
+    let response: Balance = Balance{balance};
+
+    Ok(Json(response))
 }
-
-/*#[get("/blocks/<block_height>", rank = 1)] // rank = 1: önce u64'e cast edebiliyor mu baksın (block height), edemezse string alsın (block hash)
-fn scan_block_transactions_from_height(block_height: u64) -> String {
-    let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
-    let rpc_client = RpcClient::new(rpc_url);
-    let commitment_config = CommitmentConfig::finalized(); //TODO: burada gerek var mı?
-    
-    "hey".to_string()
-
-    match rpc_client.get_confirmed_blocks_with_commitment(block_height, commitment_config) { // Son block slotunu alıp matchledik
-        Ok(block) => {
-            let block_str = serde_json::to_string(&block).unwrap(); // Son blockun bilgileri stringe dönüştürüldü
-            let block_json: Value = serde_json::from_str(&block_str).unwrap(); // Son blockun bilgileri JSONa dönüştürüldü
-
-            block_json.to_string()
-        }
-        Err(_) => String::from("Slot not found")
-    }
-}*/
-
-/*#[get("/blocks/<block_hash>", rank = 2)]
-fn scan_block_transactions_from_hash(block_hash: String) -> String {
-    let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
-    let rpc_client = RpcClient::new(rpc_url);
-    let commitment_config = CommitmentConfig::finalized(); //TODO: burada gerek var mı?
-    
-    "hey".to_string()
-
-    match rpc_client.get_confirmed_blocks_with_commitment(&block_hash, commitment_config) { // Son block slotunu alıp matchledik
-        Ok(block) => {
-            let block_str = serde_json::to_string(&block).unwrap(); // Son blockun bilgileri stringe dönüştürüldü
-            let block_json: Value = serde_json::from_str(&block_str).unwrap(); // Son blockun bilgileri JSONa dönüştürüldü
-
-            block_json.to_string()
-        }
-        Err(_) => String::from("Slot not found")
-    }
-}*/
-/************************************* END DOĞA ****************************************************/
