@@ -2,29 +2,18 @@
 #[macro_use] extern crate rocket;
 //use rocket::futures::executor::block_on;
 
-use rust_base58::{ToBase58, FromBase58};
+use rust_base58::FromBase58;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use serde_json::Value;
 use rocket::serde::json::Json;
-//use bs58::decode;
 use solana_sdk::signature::Keypair;
-//use solana_sdk::instruction::Instruction;
-//use rust_decimal::prelude::*;
-//use solana_sdk::system_instruction::SystemInstruction;
 use solana_sdk::transaction::Transaction;
 use solana_sdk::pubkey::Pubkey;
-//use solana_sdk::system_instruction::transfer_many;
-//use solana_sdk::system_instruction::transfer;
-use solana_sdk::system_instruction::transfer_many;
-//use std::arch::aarch64::LD;
-//use solana_sdk::pubkey::ParsePubkeyError;
 use std::str::FromStr;
 use spl_token::instruction::transfer;
 use solana_program::instruction::Instruction;
-use solana_sdk::signature::Signature;
-use base64::encode;
 
 
 #[get("/hello")]
@@ -102,13 +91,15 @@ struct TransactionResponse { // Response için obje
     txnHash: String
 }
 
-#[post("/transactions/sign", data = "<request>")]
-fn sign_transaction(request: &str) -> Result<Json<TransactionResponse>, String> {
+#[post("/transactions/sign", data = "<transaction_parameters>")]
+fn sign_transaction(transaction_parameters: Json<TransactionRequest>) -> Result<Json<TransactionResponse>, String> {
 
     let rpc_url = "https://api.devnet.solana.com".to_string();
     let rpc_client = RpcClient::new(rpc_url); // RPC Client oluşturuldu
-    let transaction_parameters: TransactionRequest = serde_json::from_str(request).unwrap(); // Request objeye çevrildi
     
+    if transaction_parameters.from.is_empty(){
+        return Err(String::from("No item in from part"));
+    }
 
     let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress).unwrap(); // Gönderici adresi alıyor
 
