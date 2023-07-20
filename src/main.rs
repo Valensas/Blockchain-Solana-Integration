@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use rocket::State;
-use rocket::tokio::spawn;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use solana_client::rpc_client::RpcClient;
@@ -65,7 +64,7 @@ async fn main() {
         },
     };
 
-    // End Statet
+    // End State
     match rocket.launch().await {
         Ok(_) => {
             log::info!("Server closed gracefully");
