@@ -193,7 +193,16 @@ fn sign_transaction(
             instructions.push(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount)) // Instruction oluşturulup vektöre pushlanıyor
         }
         else{ // Contract adresi var ise
-            let contract = Pubkey::from_str(transfer_param.contract.as_ref().unwrap()).unwrap();
+            let contract_str:&str = match transfer_param.contract.as_ref(){
+                Some(c) => c,
+                None => return Err(ResponseErrors::EmptyError { code: "Failed during getting the contract address".to_string() })
+            };
+
+            let contract = match Pubkey::from_str(contract_str){
+                Ok(contract) =>contract,
+                Err(_) => return Err(ResponseErrors::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() })
+            };
+            
             let instruction = match transfer(&contract, &sender_address, // Instruction (contract adresi verilerek) oluşturulup vektöre pushlanıyor
                 &to_address, &sender_address, &[], *amount){
                     Ok(instruction) => instruction,
