@@ -11,6 +11,7 @@ use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use spl_token::instruction::transfer;
 use solana_program::instruction::Instruction;
+use solana_sdk::hash::Hash;
 
 
 use std::sync::Arc;
@@ -26,6 +27,34 @@ enum ResponseErrors {
     #[response(status = 500, content_type = "json")]
     CreateTransactionError{
         code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    CreatePubkeyError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    EmptyError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    CreateByteArrayError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    CreateKeypairError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    GetBlockhashError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    ConvertTransactionError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    CreateTransferError{
+        code: String
     }
 }
 
@@ -38,7 +67,7 @@ async fn main() {
     let rpc_client = Arc::new(RpcClient::new(rpc_url));
 
     let rocket = match rocket::build()
-    .mount("/", routes![get_latest_block, send_transaction])
+    .mount("/", routes![get_latest_block, send_transaction, sign_transaction])
     .manage(rpc_client).ignite().await {
         Ok(rocket) => {
             log::info!("Server started gracefully");
@@ -114,40 +143,63 @@ struct TransactionResponse { // Response için obje
 fn sign_transaction(
     transaction_parameters: Json<TransactionRequest>,
     rpc_client: &State<Arc<RpcClient>>
-) -> Result<Json<TransactionResponse>, String> {
+) -> Result<Json<TransactionResponse>, ResponseErrors> {
     
     if transaction_parameters.from.is_empty(){
-        return Err(String::from("No item in from part"));
+        return Err(ResponseErrors::EmptyError{code : "From part of the request is empty".to_string()});
     }
 
     if transaction_parameters.to.is_empty(){
-        return Err(String::from("No item in to part"));
+        return Err(ResponseErrors::EmptyError{code : "To part of the request is empty".to_string()});
     }
 
-    let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress).unwrap(); // Gönderici adresi alıyor
+    let sender_address = match Pubkey::from_str(&transaction_parameters.from[0].adress){
+        Ok(address) => address,
+        Err(_) => return Err(ResponseErrors::CreatePubkeyError{code : "Failed during creating the Pubkey object".to_string()})
+    }; // Gönderici adresi alıyor
 
 
     let privkey = transaction_parameters.private_key.clone(); // Private Key alınıyor
-    let mut bytes_of_privatekey = privkey.from_base58().unwrap(); // Private Key byte arraye dönüştürülüyor
+    let mut bytes_of_privatekey = match privkey.from_base58(){
+        Ok(bytes) => bytes,
+        Err(_) => return Err(ResponseErrors::CreateByteArrayError{code: "Failed during creating the byte array of private key".to_string()})
+    }; // Private Key byte arraye dönüştürülüyor
 
-    bytes_of_privatekey.append(& mut transaction_parameters.from[0].adress.from_base58().unwrap());
+    let mut bytes_of_publickey = match transaction_parameters.from[0].adress.from_base58(){
+        Ok(bytes) => bytes,
+        Err(_) => return Err(ResponseErrors::CreateByteArrayError{code: "Failed during creating the byte array of public key".to_string()})
+    };
+    bytes_of_privatekey.append(& mut bytes_of_publickey);
 
-    let keypair: Keypair = Keypair::from_bytes(&bytes_of_privatekey).unwrap(); // Bu byte array ile Keypair objesi oluşturuluyor
-    let blockhash = rpc_client.get_latest_blockhash().unwrap(); // Recent blockhash alınıyor
+    let keypair: Keypair = match Keypair::from_bytes(&bytes_of_privatekey){
+        Ok(key) => key,
+        Err(_) => return Err(ResponseErrors::CreateKeypairError{code: "Failed during creating the keypair".to_string()})
+    }; // Bu byte array ile Keypair objesi oluşturuluyor
+
+    let blockhash: Hash = match rpc_client.get_latest_blockhash(){
+        Ok(hash) => hash,
+        Err(_) => return Err(ResponseErrors::GetBlockhashError{code: "Failed during getting the latest blockhash".to_string()})
+    }; // Recent blockhash alınıyor
 
     let mut instructions: Vec<Instruction> = Vec::new(); // Instructions vektörü oluşturuluyor
 
     for transfer_param in &transaction_parameters.to{
-        let to_address = Pubkey::from_str(&transfer_param.adress).unwrap();
+        let to_address = match Pubkey::from_str(&transfer_param.adress){
+            Ok(address) => address,
+            Err(_) => return Err(ResponseErrors::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() })
+        };
         let amount = &transfer_param.amount;
         if transfer_param.contract.is_none(){ // Contract adresi yok ise
             instructions.push(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount)) // Instruction oluşturulup vektöre pushlanıyor
         }
         else{ // Contract adresi var ise
             let contract = Pubkey::from_str(transfer_param.contract.as_ref().unwrap()).unwrap();
-            let ix = transfer(&contract, &sender_address, // Instruction (contract adresi verilerek) oluşturulup vektöre pushlanıyor
-                &to_address, &sender_address, &[], *amount).unwrap();
-            instructions.push(ix);
+            let instruction = match transfer(&contract, &sender_address, // Instruction (contract adresi verilerek) oluşturulup vektöre pushlanıyor
+                &to_address, &sender_address, &[], *amount){
+                    Ok(instruction) => instruction,
+                    Err(_) => return Err(ResponseErrors::CreateTransferError{code : "Failed during creating the transaction instruction".to_string()})
+                };
+            instructions.push(instruction);
         }
     }
 
@@ -159,12 +211,15 @@ fn sign_transaction(
     );
     
     let signatures = &tx.signatures; // İçindeki imza alınıyor
-    let txnHash = signatures[0].to_string(); // İmza stringe çevriliyor
+    let txn_hash = signatures[0].to_string(); // İmza stringe çevriliyor
 
-    let signedTransaction = serde_json::to_string(&tx).unwrap(); // tx objesi stringe çevriliyor
+    let signed_transaction = match serde_json::to_string(&tx){
+        Ok(transaction) => transaction,
+        Err(_) => return Err(ResponseErrors::ConvertTransactionError { code: "Failed during converting Transaction object to String".to_string() })
+    }; // tx objesi stringe çevriliyor
     let response: TransactionResponse = TransactionResponse{ // Response objesi oluşturuluyor
-        txnHash,
-        signedTransaction
+        txnHash: txn_hash,
+        signedTransaction: signed_transaction
     };
     
     return Ok(Json(response)); // Returnleniyor
