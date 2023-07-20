@@ -1,41 +1,59 @@
 #![allow(non_snake_case)]
 #[macro_use] extern crate rocket;
 
+use std::sync::Arc;
+
+use rocket::State;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use rocket::serde::json::Json;
 use solana_sdk::signature::Keypair;
 use bs58;
-/*use solana_transaction_status::{
-    EncodedConfirmedBlock, EncodedTransactionWithStatusMeta, EncodedConfirmedTransactionWithStatusMeta, TransactionStatus,
-    UiConfirmedBlock, UiTransactionEncoding,
-};*/
+use solana_sdk::transaction::Transaction;
 
-#[get("/hello")]
-fn hello() -> &'static str {
-    "Hello world\n"
+#[derive(Responder)]
+enum ResponseErrors {
+    #[response(status = 500, content_type = "json")]
+    SendTransactionError {
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    CreateTransactionError{
+        code: String
+    }
 }
 
-#[get("/greet?<name>")] // Name'e göre printliyor
-fn greet(name: &str) -> String {
-    format!("Hello {}\n", name)
-}
+#[rocket::main]
+async fn main() {
+    dotenv::dotenv().ok();
+    env_logger::init();
 
-#[derive(Debug, Deserialize)]
-struct GreetingRequest {
-    name: String
-}
+    let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
+    let rpc_client = Arc::new(RpcClient::new(rpc_url));
 
-#[post("/greet", data = "<request>")] // JSONu alıyor, GreetingRequest'e dönüştürüyor, sonra ismi basıyor
-fn greet_json(request: &str) -> String {
-    let g: GreetingRequest = serde_json::from_str(request).unwrap();
-    format!("Hello {}\n", g.name)
-}
+    let rocket = match rocket::build()
+    .mount("/", routes![get_latest_block, send_transaction, create_wallet_address])
+    .manage(rpc_client).ignite().await {
+        Ok(rocket) => {
+            log::info!("Server started gracefully");
+            rocket
+        },
+        Err(err) => {
+            log::error!("Server could not start gracefully: {}", err);
+            return;
+        },
+    };
 
-#[launch]
-fn rocket() -> _ {
-    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block, create_wallet_address])
+    // End State
+    match rocket.launch().await {
+        Ok(_) => {
+            log::info!("Server closed gracefully");
+        },
+        Err(err) => {
+            log::error!("Server could not close gracefully: {}", err);
+        },
+    };
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,9 +63,9 @@ struct Block {
 }
 
 #[get("/blocks/latest")]
-fn get_latest_block() -> Result<Json<Block>, String> {
-    let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
-    let rpc_client = RpcClient::new(rpc_url);
+fn get_latest_block(
+    rpc_client: &State<Arc<RpcClient>>
+) -> Result<Json<Block>, String> {
     let commitment_config = CommitmentConfig::finalized(); //TODO: İşlenmesi bitmiş block alınsın diye eklendi
 
     match rpc_client.get_slot_with_commitment(commitment_config) { // Son block slotunu alıp matchledik
@@ -67,6 +85,7 @@ fn get_latest_block() -> Result<Json<Block>, String> {
 }
 
 //********************************* Onur Create Wallet Address **************************************************
+#[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize)]
 struct WalletResponse {
     address: String,
@@ -74,14 +93,55 @@ struct WalletResponse {
 }
 
 #[post("/address")]
-fn create_wallet_address() -> Result<Json<WalletResponse>, String>{
+fn create_wallet_address() -> Result<Json<WalletResponse>, ResponseErrors>{
     let keypair = Keypair::new();
     let byte_array = keypair.to_bytes();
-    let address = bs58::encode(&byte_array[32..64]).into_string();
-    let privateKey = bs58::encode(&byte_array[0..32]).into_string();
+    let address = bs58::encode(&byte_array[32..]).into_string();
+    let private_key = bs58::encode(&byte_array[0..32]).into_string();
 
-    let response = WalletResponse { address, privateKey};
+    let response = WalletResponse { address, privateKey: private_key};
 
     Ok(Json(response))
 }
 //********************************* Onur Create Wallet Address **************************************************
+#[allow(non_snake_case)]
+#[derive(Debug, Serialize, Deserialize)]
+struct SendTransactionRequest {  // Request için obje oluşturuldu
+    signedTransaction: String,
+}
+#[allow(non_snake_case)]
+#[derive(Debug, Serialize, Deserialize)]
+struct SendTransactionResponse { // Response için obje oluşturuldu
+    txnHash: String,
+}
+
+#[post("/transactions/send", data = "<transaction_parameters>")]
+fn send_transaction(
+    transaction_parameters: Json<SendTransactionRequest>,
+    rpc_client: &State<Arc<RpcClient>>
+) -> Result<Json<SendTransactionResponse>, ResponseErrors>{
+
+    let tx: Transaction = match serde_json::from_str::<Transaction>(&transaction_parameters.signedTransaction){
+        Ok(tx) =>{
+            tx
+        },
+        Err(_) => {
+            return Err(ResponseErrors::CreateTransactionError { code: "Failed during creating the transaction object".to_string() });
+        }
+    };
+
+    
+    match rpc_client.send_and_confirm_transaction(&tx) {
+        Ok(txn_hash) => { // Signature'ı Stringe çevir
+            let response: SendTransactionResponse = SendTransactionResponse{ // Response objesi oluşturuluyor
+                txnHash: txn_hash.to_string()
+            };
+            
+            return Ok(Json(response));
+        },
+        Err(_) => {
+            return Err(ResponseErrors::SendTransactionError { code: "Failed during sending the transaction".to_string() });
+        }
+    }
+}
+
