@@ -99,22 +99,28 @@ struct Block {
 #[get("/blocks/latest")]
 fn get_latest_block(
     rpc_client: &State<Arc<RpcClient>>
-) -> Result<Json<Block>, String> {
+) -> Result<Json<Block>, ResponseErrors> {
     let commitment_config = CommitmentConfig::finalized(); //TODO: İşlenmesi bitmiş block alınsın diye eklendi
 
     match rpc_client.get_slot_with_commitment(commitment_config) { // Son block slotunu alıp matchledik
         Ok(slot) => {
-            let block = rpc_client.get_block(slot).unwrap();
-
+            let block = match rpc_client.get_block(slot){
+                Ok(block) => block,
+                Err(_) => return Err(ResponseErrors::GetBlockhashError { code:  "Failed during getting the latest blockhash".to_string()})
+            };
+            let height = match block.block_height{
+                Some(height) => height,
+                None => return Err(ResponseErrors::GetBlockhashError { code: "Failed during getting the block height".to_string() })
+            };
             let block: Block = Block { // Block objesi yaratıldı
-                height: block.block_height.unwrap(),
+                height,
                 hash: block.blockhash
             };
 
             Ok(Json(block))
             //serde_json::from_str(&block) // Block objesi JSON stringine dönüştürüldü ve returnlendi
         }
-        Err(_) => Err(String::from("Slot not found"))
+        Err(_) => return Err(ResponseErrors::GetBlockhashError { code: "Failed during getting the slot with commitment".to_string() })
     }
 }
 
