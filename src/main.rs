@@ -1,10 +1,27 @@
 #[macro_use] extern crate rocket;
+
+use std::sync::Arc;
+
+use rocket::State;
+use rocket::tokio::spawn;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::transaction::Transaction;
 use rocket::serde::json::Json;
+
+#[derive(Responder)]
+enum ResponseErrors {
+    #[response(status = 500, content_type = "json")]
+    SendTransactionError {
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    CreateTransactionError{
+        code: String
+    }
+}
 
 #[get("/hello")]
 fn hello() -> &'static str {
@@ -27,9 +44,36 @@ fn greet_json(request: &str) -> String {
     format!("Hello {}\n", g.name)
 }
 
-#[launch]
-fn rocket() -> _ {
-    rocket::build().mount("/", routes![hello, greet, greet_json, get_latest_block, send_transaction])
+#[rocket::main]
+async fn main() {
+    dotenv::dotenv().ok();
+    env_logger::init();
+
+    let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
+    let rpc_client = Arc::new(RpcClient::new(rpc_url));
+
+    let rocket = match rocket::build()
+    .mount("/", routes![hello, greet, greet_json, get_latest_block, send_transaction])
+    .manage(rpc_client).ignite().await {
+        Ok(rocket) => {
+            log::info!("Server started gracefully");
+            rocket
+        },
+        Err(err) => {
+            log::error!("Server could not start gracefully: {}", err);
+            return;
+        },
+    };
+
+    // End Statet
+    match rocket.launch().await {
+        Ok(_) => {
+            log::info!("Server closed gracefully");
+        },
+        Err(err) => {
+            log::error!("Server could not close gracefully: {}", err);
+        },
+    };
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -39,9 +83,9 @@ struct Block {
 }
 
 #[get("/blocks/latest")]
-fn get_latest_block() -> String {
-    let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
-    let rpc_client = RpcClient::new(rpc_url);
+fn get_latest_block(
+    rpc_client: &State<Arc<RpcClient>>
+) -> String {
     let commitment_config = CommitmentConfig::finalized(); //TODO: İşlenmesi bitmiş block alınsın diye eklendi
     
     match rpc_client.get_slot_with_commitment(commitment_config) { // Son block slotunu alıp matchledik
@@ -60,32 +104,45 @@ fn get_latest_block() -> String {
     }
 }
 //*************************************************ONUR SEND TRANSACTION********************************************************
+#[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize)]
 struct SendTransactionRequest {  // Request için obje oluşturuldu
     signedTransaction: String,
 }
+#[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize)]
 struct SendTransactionResponse { // Response için obje oluşturuldu
     txnHash: String,
 }
 
 #[post("/transactions/send", data = "<transaction_parameters>")]
-fn send_transaction(transaction_parameters: Json<SendTransactionRequest>) -> Result<Json<SendTransactionResponse>, solana_client::client_error::ClientError>{
+fn send_transaction(
+    transaction_parameters: Json<SendTransactionRequest>,
+    rpc_client: &State<Arc<RpcClient>>
+) -> Result<Json<SendTransactionResponse>, ResponseErrors>{
 
-    let tx: Transaction = serde_json::from_str::<Transaction>(&transaction_parameters.signedTransaction).unwrap(); // Transaction objesi yarat
-    let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
-    let rpc_client = RpcClient::new(rpc_url);
-    let txnHash: Result<solana_sdk::signature::Signature, solana_client::client_error::ClientError> = rpc_client.send_and_confirm_transaction(&tx); // Signature'ı Stringe çevir
-    let txnHash = match txnHash{
-        Ok(hash) => hash.to_string(),
-        Err(err) => return Err(err)
+    let tx: Transaction = match serde_json::from_str::<Transaction>(&transaction_parameters.signedTransaction){
+        Ok(tx) =>{
+            tx
+        },
+        Err(_) => {
+            return Err(ResponseErrors::CreateTransactionError { code: "Failed during creating the transaction object".to_string() });
+        }
     };
 
-    let response: SendTransactionResponse = SendTransactionResponse{ // Response objesi oluşturuluyor
-        txnHash
-    };
     
-    return Ok(Json(response)); // Returnleniyor
+    match rpc_client.send_and_confirm_transaction(&tx) {
+        Ok(txn_hash) => { // Signature'ı Stringe çevir
+            let response: SendTransactionResponse = SendTransactionResponse{ // Response objesi oluşturuluyor
+                txnHash: txn_hash.to_string()
+            };
+            
+            return Ok(Json(response));
+        },
+        Err(_) => {
+            return Err(ResponseErrors::SendTransactionError { code: "Failed during sending the transaction".to_string() });
+        }
+    }
 }
 
 //*************************************************ONUR SEND TRANSACTION********************************************************
