@@ -11,6 +11,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 solana-client = "1.16.2"
 solana-transaction-status = "1.16.3"
+<<<<<<< HEAD
 anyhow = "1.0.72"
 log = "0.4.19"
 env_logger = "0.10.0"
@@ -19,3 +20,11 @@ dotenv = "0.15.0"
 [dependencies.rocket]
 version = "=0.5.0-rc.3"
 features = ["json"]
+=======
+rust_decimal = "1.30"
+rocket_contrib = "0.4.11"
+
+[dependencies.rocket]
+version = "=0.5.0-rc.3"
+features = ["json"]
+>>>>>>> 40a3eaf72ff1d33a7d357c6b7e244a7872b16d55
