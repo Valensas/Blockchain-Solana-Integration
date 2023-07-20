@@ -16,6 +16,11 @@ spl-token = "4.0.0"
 solana-program = "1.16.1"
 rust-base58 = "0.0.4"
 base64 = "0.21.2"
+solana-transaction-status = "1.16.3"
+anyhow = "1.0.72"
+log = "0.4.19"
+env_logger = "0.10.0"
+dotenv = "0.15.0"
 
 [dependencies.rocket]
 version = "=0.5.0-rc.3"
