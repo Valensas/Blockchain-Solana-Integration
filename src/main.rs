@@ -96,8 +96,9 @@ struct WalletResponse {
 fn create_wallet_address() -> Result<Json<WalletResponse>, ResponseErrors>{
     let keypair = Keypair::new();
     let byte_array = keypair.to_bytes();
-    let address = bs58::encode(&byte_array[32..]).into_string();
-    let private_key = bs58::encode(&byte_array[0..32]).into_string();
+    let key_length = 32;
+    let address = bs58::encode(&byte_array[key_length..]).into_string();
+    let private_key = bs58::encode(&byte_array[0..key_length]).into_string();
 
     let response = WalletResponse { address, privateKey: private_key};
 
