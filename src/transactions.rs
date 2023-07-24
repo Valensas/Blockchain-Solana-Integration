@@ -27,27 +27,27 @@ pub fn sign_transaction(
 
     let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress)
     .map_err(|err| {
-        log::error!("Error getting latest block: {}", err);
+        log::error!("Error during creating the Pubkey object: {}", err);
         ResponseError::CreatePubkeyError{code : "Failed during creating the Pubkey object".to_string()}
     })?;
 
     let privkey = transaction_parameters.private_key.clone();
 
     let mut bytes_of_privatekey = privkey.from_base58().map_err(|err|{
-        log::error!("Error getting latest block: {}", err);
+        log::error!("Error during creating the byte array of private key: {}", err);
         ResponseError::CreateByteArrayError{code: "Failed during creating the byte array of private key".to_string()}
     })?;
 
     let mut bytes_of_publickey = transaction_parameters.from[0].adress.from_base58().map_err(|err|{
-        log::error!("Error getting latest block: {}", err);
-        ResponseError::CreateByteArrayError{code: "Failed during creating the byte array of private key".to_string()}
+        log::error!("Error during creating the byte array of public key: {}", err);
+        ResponseError::CreateByteArrayError{code: "Failed during creating the byte array of public key".to_string()}
     })?;
 
     bytes_of_privatekey.append(& mut bytes_of_publickey);
 
     let keypair: Keypair = Keypair::from_bytes(&bytes_of_privatekey)
     .map_err(|err|{
-        log::error!("Error getting latest block: {}", err);
+        log::error!("Error during creating the keypair: {}", err);
         ResponseError::CreateKeypairError{code: "Failed during creating the keypair".to_string()}
     })?;
 
@@ -63,7 +63,7 @@ pub fn sign_transaction(
 
         let to_address = Pubkey::from_str(&transfer_param.adress)
         .map_err(|err| {
-            log::error!("Error getting latest block: {}", err);
+            log::error!("Error during creating the Pubkey object: {}", err);
             ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() }
         })?;
         
@@ -80,14 +80,14 @@ pub fn sign_transaction(
 
             let contract = Pubkey::from_str(contract_str)
             .map_err(|err| {
-                log::error!("Error getting latest block: {}", err);
+                log::error!("Error during creating the Pubkey object: {}", err);
                 ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() }
             })?;
             
             let instruction = transfer(&contract, &sender_address, // Instruction (contract adresi verilerek) oluşturulup vektöre pushlanıyor
                 &to_address, &sender_address, &[], *amount as u64)
                 .map_err(|err| {
-                    log::error!("Error getting latest block: {}", err);
+                    log::error!("Error during creating the transaction instruction: {}", err);
                     ResponseError::CreateTransferError{code : "Failed during creating the transaction instruction".to_string()}
                 })?;
             instructions.push(instruction);
@@ -188,7 +188,7 @@ pub fn send_transaction(
 
     let tx = serde_json::from_str::<Transaction>(&transaction_parameters.signed_transaction)
         .map_err(|err|{
-            log::error!("Error getting latest block: {}", err);
+            log::error!("Error while creating the transaction object: {}", err);
             ResponseError::CreateTransactionError { code: "Failed during creating the transaction object".to_string() }
         } )?;
 
@@ -200,7 +200,7 @@ pub fn send_transaction(
             })
         )
         .map_err(|err| {
-            log::error!("Error getting latest block: {}", err);
+            log::error!("Error while sending the transaction: {}", err);
             ResponseError::SendTransactionError { code: "Failed during sending the transaction".to_string() } 
         })
 }

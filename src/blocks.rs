@@ -14,7 +14,7 @@ pub fn get_latest_block(
 
     let slot = rpc_client.get_slot_with_commitment(CommitmentConfig::confirmed()) // Here we use CommitmentConfig::confirmed() to avoid risk of expiring Blockhash
     .map_err(|err| {
-        log::error!("Error getting latest block: {}", err); 
+        log::error!("Error getting latest slot with the commmitment: {}", err); 
         ResponseError::LatestSlotError { code: "Failed during getting the latest slot".to_string()}})?;
 
     rpc_client.get_block(slot)
