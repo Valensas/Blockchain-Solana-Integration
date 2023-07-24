@@ -1,4 +1,3 @@
-#![allow(non_snake_case)]
 #[macro_use] extern crate rocket;
 
 pub mod errors;
@@ -25,6 +24,7 @@ async fn main() {
         blocks::scan_block_transactions_from_slot,
         transactions::send_transaction,
         transactions::get_transaction_details,
+        wallets::get_wallet_balance,
         wallets::create_wallet_address
     ])
     .manage(rpc_client).ignite().await {

@@ -198,10 +198,16 @@ pub struct SendTransactionRequest {
     pub signed_transaction: String,
 }
 
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SendTransactionResponse {
   #[serde(rename="txnHash")]
     pub txn_hash: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Balance {
+    pub balance: u64
 }
 
 #[derive(Debug, Serialize, Deserialize)]
