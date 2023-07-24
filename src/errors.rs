@@ -13,6 +13,10 @@ pub enum ResponseError {
         code: String
     },
     #[response(status = 500, content_type = "json")]
+    CreateInstructionsArray{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
     GetBlockError{
         code: String
     },

@@ -57,67 +57,66 @@ pub fn sign_transaction(
         ResponseError::GetBlockhashError{code: "Failed during getting the latest confirmed blockhash".to_string()}
     })?;
 
-    let mut instructions: Vec<Instruction> = Vec::new();
 
-    for transfer_param in &transaction_parameters.to{
-
-        let to_address = Pubkey::from_str(&transfer_param.adress)
-        .map_err(|err| {
-            log::error!("Error during creating the Pubkey object: {}", err);
-            ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() }
-        })?;
-        
-        let amount = &transfer_param.amount;
-
-        match transfer_param.contract {
-            Some(_) => {
-                let contract_str:&str = match transfer_param.contract.as_ref(){
-                    Some(c) => c,
-                    None => return Err(ResponseError::EmptyError { code: "Failed during getting the contract address".to_string() })
-                };
-    
-                let contract = Pubkey::from_str(contract_str)
+    let instructions_result: Result<Vec<Instruction>, ResponseError> = transaction_parameters.to.iter()
+        .map(|transfer_param| {
+            let to_address = Pubkey::from_str(&transfer_param.adress)
                 .map_err(|err| {
                     log::error!("Error during creating the Pubkey object: {}", err);
                     ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() }
                 })?;
-                
-                let instruction = transfer(&contract, &sender_address, // Instruction (contract adresi verilerek) oluşturulup vektöre pushlanıyor
-                    &to_address, &sender_address, &[], *amount as u64)
-                    .map_err(|err| {
-                        log::error!("Error during creating the transaction instruction: {}", err);
-                        ResponseError::CreateTransferError{code : "Failed during creating the transaction instruction".to_string()}
-                    })?;
-                instructions.push(instruction);
+        
+            let amount = &transfer_param.amount;
+
+            match transfer_param.contract.as_ref() {
+                Some(contract_str) => {
+                    let contract = Pubkey::from_str(contract_str)
+                        .map_err(|err| {
+                            log::error!("Error during creating the Pubkey object: {}", err);
+                            ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() }
+                        })?;
+                    
+                    let instruction = transfer(&contract, &sender_address, &to_address, &sender_address, &[], *amount as u64)
+                        .map_err(|err| {
+                            log::error!("Error during creating the transaction instruction: {}", err);
+                            ResponseError::CreateTransferError { code: "Failed during creating the transaction instruction".to_string() }
+                        })?;
+                    Ok(instruction)
+                }
+                None => Ok(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount as u64))
             }
-            None => {
-                instructions.push(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount as u64))
-            }
+        })
+        .collect();
+
+    match instructions_result{
+        Ok(instructions) => {
+            let tx = Transaction::new_signed_with_payer( // Transaction objesi oluşturuluyor
+                &instructions,
+                Some(&sender_address),
+                &[&keypair],
+                blockhash.0
+            );
+            
+            let signatures = &tx.signatures;
+            let txn_hash = signatures[0].to_string();
+        
+            let signed_transaction = serde_json::to_string(&tx)
+            .map_err(|err| {
+                log::error!("Error getting latest block: {}", err);
+                ResponseError::ConvertTransactionError { code: "Failed during converting Transaction object to String".to_string() }
+            })?;
+            let response: SignTransactionResponse = SignTransactionResponse{
+                txn_hash: txn_hash,
+                signed_transaction: signed_transaction
+            };
+            
+            Ok(Json(response))
         }
-    }
 
-    let tx = Transaction::new_signed_with_payer( // Transaction objesi oluşturuluyor
-        &instructions,
-        Some(&sender_address),
-        &[&keypair],
-        blockhash.0
-    );
-    
-    let signatures = &tx.signatures;
-    let txn_hash = signatures[0].to_string();
-
-    let signed_transaction = serde_json::to_string(&tx)
-    .map_err(|err| {
-        log::error!("Error getting latest block: {}", err);
-        ResponseError::ConvertTransactionError { code: "Failed during converting Transaction object to String".to_string() }
-    })?;
-    let response: SignTransactionResponse = SignTransactionResponse{
-        txn_hash: txn_hash,
-        signed_transaction: signed_transaction
-    };
-    
-    return Ok(Json(response));
-
+        Err(_) => {
+            Err(ResponseError::CreateInstructionsArray { code: "Failed creating the instructions array".to_string() })
+        }
+    } 
 }
 
 #[get("/transactions/<txn_hash>/detail")]
