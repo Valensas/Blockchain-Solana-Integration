@@ -205,6 +205,22 @@ pub struct SendTransactionResponse {
     pub txn_hash: String,
 }
 
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SignTransactionRequest {
+    pub from: Vec<AccountInfo>,
+    pub to: Vec<AccountInfo>,
+    pub private_key: String
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SignTransactionResponse {
+    #[serde(rename="signedTransaction")]
+    pub signed_transaction: String,
+    #[serde(rename="txnHash")]
+    pub txn_hash: String
+}
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Balance {
     pub balance: u64

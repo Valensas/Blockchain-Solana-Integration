@@ -13,6 +13,10 @@ pub enum ResponseError {
         code: String
     },
     #[response(status = 500, content_type = "json")]
+    CreateInstructionsArray{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
     GetBlockError{
         code: String
     },
@@ -49,7 +53,31 @@ pub enum ResponseError {
         code: String
     },
     #[response(status = 500, content_type = "json")]
+    EmptyError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    CreatePubkeyError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
     CreateByteArrayError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    CreateKeypairError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    GetBlockhashError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    ConvertTransactionError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    CreateTransferError{
         code: String
     }
 }

@@ -22,6 +22,7 @@ async fn main() {
     .mount("/", routes![
         blocks::get_latest_block,
         blocks::scan_block_transactions_from_slot,
+        transactions::sign_transaction,
         transactions::send_transaction,
         transactions::get_transaction_details,
         wallets::get_wallet_balance,
@@ -47,5 +48,4 @@ async fn main() {
             log::error!("Server could not close gracefully: {}", err);
         },
     };
-
 }
