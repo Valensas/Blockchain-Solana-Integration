@@ -69,28 +69,30 @@ pub fn sign_transaction(
         
         let amount = &transfer_param.amount;
 
-        if transfer_param.contract.is_none(){
-            instructions.push(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount as u64)) // Instruction oluşturulup vektöre pushlanıyor
-        }
-        else{
-            let contract_str:&str = match transfer_param.contract.as_ref(){
-                Some(c) => c,
-                None => return Err(ResponseError::EmptyError { code: "Failed during getting the contract address".to_string() })
-            };
-
-            let contract = Pubkey::from_str(contract_str)
-            .map_err(|err| {
-                log::error!("Error during creating the Pubkey object: {}", err);
-                ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() }
-            })?;
-            
-            let instruction = transfer(&contract, &sender_address, // Instruction (contract adresi verilerek) oluşturulup vektöre pushlanıyor
-                &to_address, &sender_address, &[], *amount as u64)
+        match transfer_param.contract {
+            Some(_) => {
+                let contract_str:&str = match transfer_param.contract.as_ref(){
+                    Some(c) => c,
+                    None => return Err(ResponseError::EmptyError { code: "Failed during getting the contract address".to_string() })
+                };
+    
+                let contract = Pubkey::from_str(contract_str)
                 .map_err(|err| {
-                    log::error!("Error during creating the transaction instruction: {}", err);
-                    ResponseError::CreateTransferError{code : "Failed during creating the transaction instruction".to_string()}
+                    log::error!("Error during creating the Pubkey object: {}", err);
+                    ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() }
                 })?;
-            instructions.push(instruction);
+                
+                let instruction = transfer(&contract, &sender_address, // Instruction (contract adresi verilerek) oluşturulup vektöre pushlanıyor
+                    &to_address, &sender_address, &[], *amount as u64)
+                    .map_err(|err| {
+                        log::error!("Error during creating the transaction instruction: {}", err);
+                        ResponseError::CreateTransferError{code : "Failed during creating the transaction instruction".to_string()}
+                    })?;
+                instructions.push(instruction);
+            }
+            None => {
+                instructions.push(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount as u64))
+            }
         }
     }
 
