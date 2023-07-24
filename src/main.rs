@@ -5,6 +5,7 @@ pub mod blocks;
 pub mod models;
 pub mod config;
 pub mod transactions;
+pub mod wallets;
 
 use solana_client::rpc_client::RpcClient;
 use std::sync::Arc;
@@ -23,6 +24,7 @@ async fn main() {
         blocks::scan_block_transactions_from_slot,
         transactions::send_transaction,
         transactions::get_transaction_details,
+        wallets::get_wallet_balance
     ])
     .manage(rpc_client).ignite().await {
         Ok(rocket) => {
