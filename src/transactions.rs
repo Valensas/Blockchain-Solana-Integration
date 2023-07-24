@@ -195,7 +195,7 @@ pub fn send_transaction(
     rpc_client
         .send_and_confirm_transaction(&tx)
         .map(|txn_hash|
-            Json(SendTransactionResponse{ // Response objesi oluşturuluyor
+            Json(SendTransactionResponse{
                 txn_hash: txn_hash.to_string()
             })
         )
