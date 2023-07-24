@@ -24,7 +24,8 @@ async fn main() {
         blocks::scan_block_transactions_from_slot,
         transactions::send_transaction,
         transactions::get_transaction_details,
-        wallets::get_wallet_balance
+        wallets::get_wallet_balance,
+        wallets::create_wallet_address
     ])
     .manage(rpc_client).ignite().await {
         Ok(rocket) => {
@@ -46,4 +47,5 @@ async fn main() {
             log::error!("Server could not close gracefully: {}", err);
         },
     };
+
 }

@@ -209,3 +209,10 @@ pub struct SendTransactionResponse {
 pub struct Balance {
     pub balance: u64
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WalletResponse {
+    pub address: String,
+    #[serde(rename="privateKey")]
+    pub private_key: String
+}

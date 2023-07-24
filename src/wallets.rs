@@ -1,9 +1,9 @@
-use crate::{errors::ResponseError, models::Balance};
+use crate::{errors::ResponseError, models::{Balance, WalletResponse}};
 use solana_client::rpc_client::RpcClient;
 use std::sync::Arc;
 use rocket::{State, serde::json::Json};
 use bs58;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 
 #[get("/address/<address>/balance")]
 pub fn get_wallet_balance(address: &str, rpc_client: &State<Arc<RpcClient>>) -> Result<Json<Balance>, ResponseError>{
@@ -32,4 +32,16 @@ pub fn get_wallet_balance(address: &str, rpc_client: &State<Arc<RpcClient>>) -> 
     let response: Balance = Balance{balance};
 
     Ok(Json(response))
+}
+#[post("/address")]
+pub fn create_wallet_address() -> Json<WalletResponse>{
+    let keypair = Keypair::new();
+    let byte_array = keypair.to_bytes();
+    let key_length = 32;
+    let address = bs58::encode(&byte_array[key_length..]).into_string();
+    let private_key = bs58::encode(&byte_array[0..key_length]).into_string();
+
+    let response = WalletResponse { address, private_key };
+
+    Json(response)
 }
