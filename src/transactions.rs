@@ -3,11 +3,12 @@ use std::{sync::Arc, str::FromStr};
 use rust_base58::FromBase58;
 use rocket::{State, serde::json::Json};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{signature::Signature, transaction::Transaction, pubkey::Pubkey, signature::Keypair, hash::Hash};
+use solana_sdk::{signature::Signature, transaction::Transaction, pubkey::Pubkey, signature::Keypair, commitment_config::CommitmentConfig};
 use solana_transaction_status::{EncodedConfirmedBlock, UiTransactionEncoding};
 use spl_token::instruction::transfer;
 use solana_program::instruction::Instruction;
 use crate::{errors::ResponseError, models::{DetailedTransaction, TransactionInfoConvertiable, SendTransactionRequest, SendTransactionResponse, SignTransactionRequest, SignTransactionResponse}, config::SOL_PRECISION};
+
 
 
 #[post("/transactions/sign", data = "<transaction_parameters>")]
@@ -50,10 +51,10 @@ pub fn sign_transaction(
         ResponseError::CreateKeypairError{code: "Failed during creating the keypair".to_string()}
     })?;
 
-    let blockhash: Hash = rpc_client.get_latest_blockhash()
+    let blockhash = rpc_client.get_latest_blockhash_with_commitment(CommitmentConfig::confirmed()) // Here we use CommitmentConfig::confirmed() to avoid risk of expiring Blockhash
     .map_err(|err| {
-        log::error!("Error getting latest block: {}", err);
-        ResponseError::GetBlockhashError{code: "Failed during getting the latest blockhash".to_string()}
+        log::error!("Error while getting the latest confirmed blockhash: {}", err);
+        ResponseError::GetBlockhashError{code: "Failed during getting the latest confirmed blockhash".to_string()}
     })?;
 
     let mut instructions: Vec<Instruction> = Vec::new();
@@ -97,7 +98,7 @@ pub fn sign_transaction(
         &instructions,
         Some(&sender_address),
         &[&keypair],
-        blockhash
+        blockhash.0
     );
     
     let signatures = &tx.signatures;

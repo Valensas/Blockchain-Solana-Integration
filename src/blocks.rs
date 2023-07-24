@@ -3,6 +3,7 @@ use crate::{errors::ResponseError, models::{Block, TransactionInfo, TransactionI
 use std::sync::Arc;
 use rocket::{State, serde::json::Json};
 use solana_client::rpc_client::RpcClient;
+use solana_sdk::commitment_config::CommitmentConfig;
 use solana_transaction_status::EncodedConfirmedBlock;
 
 
@@ -11,7 +12,7 @@ pub fn get_latest_block(
     rpc_client: &State<Arc<RpcClient>>
 ) -> Result<Json<Block>, ResponseError> {
 
-    let slot = rpc_client.get_slot()
+    let slot = rpc_client.get_slot_with_commitment(CommitmentConfig::confirmed()) // Here we use CommitmentConfig::confirmed() to avoid risk of expiring Blockhash
     .map_err(|err| {
         log::error!("Error getting latest block: {}", err); 
         ResponseError::LatestSlotError { code: "Failed during getting the latest slot".to_string()}})?;
