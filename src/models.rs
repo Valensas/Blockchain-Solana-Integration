@@ -198,7 +198,7 @@ pub struct SendTransactionRequest {
     pub signed_transaction: String,
 }
 
-#[allow(non_snake_case)]
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SendTransactionResponse {
   #[serde(rename="txnHash")]
@@ -220,4 +220,15 @@ pub struct SignTransactionResponse {
     pub signed_transaction: String,
     #[serde(rename="txnHash")]
     pub txn_hash: String
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Balance {
+    pub balance: u64
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WalletResponse {
+    pub address: String,
+    #[serde(rename="privateKey")]
+    pub private_key: String
 }

@@ -21,6 +21,10 @@ pub enum ResponseError {
         code: String
     },
     #[response(status = 500, content_type = "json")]
+    GetBalanceError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
     GetTransactionError{
         code: String
     },
