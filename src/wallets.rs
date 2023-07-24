@@ -1,9 +1,9 @@
-use crate::{errors::ResponseError, models::WalletResponse};
+use crate::models::WalletResponse;
 use rocket::serde::json::Json;
 use solana_sdk::signature::Keypair;
 
 #[post("/address")]
-pub fn create_wallet_address() -> Result<Json<WalletResponse>, ResponseError>{
+pub fn create_wallet_address() -> Json<WalletResponse>{
     let keypair = Keypair::new();
     let byte_array = keypair.to_bytes();
     let key_length = 32;
@@ -12,5 +12,5 @@ pub fn create_wallet_address() -> Result<Json<WalletResponse>, ResponseError>{
 
     let response = WalletResponse { address, private_key };
 
-    Ok(Json(response))
+    Json(response)
 }
