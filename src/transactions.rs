@@ -58,7 +58,7 @@ pub fn sign_transaction(
     })?;
 
 
-    let instructions_result: Result<Vec<Instruction>, ResponseError> = transaction_parameters.to.iter()
+    let instructions: Vec<Instruction> = transaction_parameters.to.iter()
         .map(|transfer_param| {
             let to_address = Pubkey::from_str(&transfer_param.adress)
                 .map_err(|err| {
@@ -86,37 +86,30 @@ pub fn sign_transaction(
                 None => Ok(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount as u64))
             }
         })
-        .collect();
-
-    match instructions_result{
-        Ok(instructions) => {
-            let tx = Transaction::new_signed_with_payer( // Transaction objesi oluşturuluyor
-                &instructions,
-                Some(&sender_address),
-                &[&keypair],
-                blockhash.0
-            );
-            
-            let signatures = &tx.signatures;
-            let txn_hash = signatures[0].to_string();
+        .collect::<Result<Vec<_>, _>>()?;
         
-            let signed_transaction = serde_json::to_string(&tx)
-            .map_err(|err| {
-                log::error!("Error getting latest block: {}", err);
-                ResponseError::ConvertTransactionError { code: "Failed during converting Transaction object to String".to_string() }
-            })?;
-            let response: SignTransactionResponse = SignTransactionResponse{
-                txn_hash: txn_hash,
-                signed_transaction: signed_transaction
-            };
-            
-            Ok(Json(response))
-        }
+        let tx = Transaction::new_signed_with_payer(
+            &instructions,
+            Some(&sender_address),
+            &[&keypair],
+            blockhash.0
+        );
+        
+        let signatures = &tx.signatures;
+        let txn_hash = signatures[0].to_string();
+    
+        let signed_transaction = serde_json::to_string(&tx)
+        .map_err(|err| {
+            log::error!("Error getting latest block: {}", err);
+            ResponseError::ConvertTransactionError { code: "Failed during converting Transaction object to String".to_string() }
+        })?;
+        let response: SignTransactionResponse = SignTransactionResponse{
+            txn_hash: txn_hash,
+            signed_transaction: signed_transaction
+        };
+        
+        Ok(Json(response))
 
-        Err(_) => {
-            Err(ResponseError::CreateInstructionsArray { code: "Failed creating the instructions array".to_string() })
-        }
-    } 
 }
 
 #[get("/transactions/<txn_hash>/detail")]
