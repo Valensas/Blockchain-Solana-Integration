@@ -28,6 +28,10 @@ pub enum ResponseError {
     GetTransactionError{
         code: String
     },
+    #[response(status = 404, content_type = "json")]
+    GetBlockHeightError{
+        code: String
+    },
     #[response(status = 400, content_type = "json")]
     StrToSignatureError{
         code: String

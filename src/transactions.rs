@@ -7,7 +7,7 @@ use solana_sdk::{signature::Signature, transaction::Transaction, pubkey::Pubkey,
 use solana_transaction_status::UiTransactionEncoding;
 use spl_token::instruction::transfer;
 use solana_program::instruction::Instruction;
-use crate::{errors::ResponseError, models::{TransactionInfoConvertiable, SendTransactionRequest, SendTransactionResponse, SignTransactionRequest, SignTransactionResponse, TransactionInfo}};
+use crate::{errors::ResponseError, models::{TransactionInfoConvertiable, SendTransactionRequest, SendTransactionResponse, SignTransactionRequest, SignTransactionResponse, TransactionInfo, ConfirmationCount}};
 
 #[post("/transactions/sign", data = "<transaction_parameters>")]
 pub fn sign_transaction(
@@ -167,3 +167,47 @@ pub fn send_transaction(
         })
 }
 
+#[get("/transactions/<txn_hash>/confirmations")]
+pub fn get_confirmation_count(    
+    rpc_client: &State<Arc<RpcClient>>,
+    txn_hash: &str
+) -> Result<Json<ConfirmationCount>, ResponseError> {
+    let signature = Signature::from_str(txn_hash)
+        .map_err(|err| {
+            log::error!("Failed during converting txnHash (&str) to Signature: {}", err);
+            ResponseError::StrToSignatureError { code: "Failed during parsing signature".to_string() }
+        })?;
+    
+    let block_slot = rpc_client.get_transaction(&signature, UiTransactionEncoding::Json)
+        .map(|transaction| transaction.slot)
+        .map_err(|err| {
+            log::error!("Failed during getting the transaction with given hash: {}", err);
+            ResponseError::GetTransactionError { code: "Failed during getting the transaction with given hash".to_string() }
+        })?;
+    
+    let block = rpc_client.get_block(block_slot)
+        .map_err(|err| {
+            log::error!("Failed during getting the block with given slot: {}", err);
+            ResponseError::GetBlockError { code: "Failed during getting the block with given slot".to_string() }
+        })?;
+
+    let block_height = match block.block_height {
+        Some(height) => {
+            height
+        },
+        None => {
+            return Err(ResponseError::GetBlockHeightError { code: "Failed during getting the height of the given block".to_string() });
+        }
+    };
+
+    let latest_block_height = rpc_client.get_block_height()
+        .map_err(|err| {
+            log::error!("Failed during getting the latest block height: {}", err);
+            ResponseError::GetBlockHeightError { code: "Failed during getting the latest block height".to_string() }
+        })?;
+
+    Ok(Json(ConfirmationCount { 
+        confirmations_count: latest_block_height - block_height
+    }))
+
+}

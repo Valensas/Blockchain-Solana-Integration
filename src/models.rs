@@ -225,3 +225,9 @@ pub struct WalletResponse {
     #[serde(rename="privateKey")]
     pub private_key: String
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfirmationCount {
+    #[serde(rename="confirmationsCount")]
+    pub confirmations_count: u64
+}

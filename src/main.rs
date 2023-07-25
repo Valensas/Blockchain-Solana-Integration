@@ -25,6 +25,7 @@ async fn main() {
         transactions::sign_transaction,
         transactions::send_transaction,
         transactions::get_transaction_details,
+        transactions::get_confirmation_count,
         wallets::get_wallet_balance,
         wallets::create_wallet_address
     ])
