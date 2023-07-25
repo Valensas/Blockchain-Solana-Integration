@@ -25,14 +25,6 @@ pub struct TransactionInfo {
     pub from: Vec<AccountInfo>,
     pub to: Vec<AccountInfo>,
     pub hash: String,
-    pub status: String
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DetailedTransaction {
-    pub from: Vec<AccountInfo>,
-    pub to: Vec<AccountInfo>,
-    pub hash: String,
     pub status: String,
     pub fee: f64,
     #[serde(rename="blockHash")]
@@ -40,16 +32,15 @@ pub struct DetailedTransaction {
     /// We use slot instead of height in Solana
     #[serde(rename="blockHeight")]
     pub block_height: u64
-
 }
 
 pub trait TransactionInfoConvertiable {
-  fn to_transaction_info(&self) -> Result<TransactionInfo, ResponseError>;
+  fn to_transaction_info(&self, block_slot: u64, hash: &String) -> Result<TransactionInfo, ResponseError>;
 }
 
 impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
-  fn to_transaction_info(&self) -> Result<TransactionInfo, ResponseError> {
-    let meta = match &self.meta {  // Transaction metası alındı
+  fn to_transaction_info(&self, block_slot: u64, block_hash: &String) -> Result<TransactionInfo, ResponseError> {
+    let meta = match &self.meta {
         Some(meta) => {
             meta
         },
@@ -58,25 +49,8 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
         }
     };
 
-    /***** Transaction status burada alınıyor *****/
     let transaction_status = meta.status.is_ok().to_string();
-
-    /* SOL balances */
-    let pre_balances = &meta.pre_balances;
-    let post_balances = &meta.post_balances;
-    let empty_vec = Vec::<UiTransactionTokenBalance>::new();
-
-    /* Token balances */
-    let pre_token_balances = match &meta.pre_token_balances {
-        OptionSerializer::Some(balances) => balances,
-        OptionSerializer::None => &empty_vec,
-        OptionSerializer::Skip => &empty_vec,
-    };
-    let post_token_balances = match &meta.post_token_balances {
-        OptionSerializer::Some(balances) => balances,
-        OptionSerializer::None => &empty_vec,
-        OptionSerializer::Skip => &empty_vec,
-    };
+    let transaction_fee = adjust_precision(meta.fee as f64);
 
     let transaction = match &self.transaction {
         EncodedTransaction::LegacyBinary(_legacy_binary) => {
@@ -91,11 +65,10 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
         EncodedTransaction::Json(ui_transaction) => ui_transaction
     };
 
-    /***** Transaction hash burada alınıyor *****/
     let transaction_hash = (&transaction.signatures[0]).to_string();
 
-    let mut transaction_from: Vec<AccountInfo> = Vec::new(); // Transaction objesinin içine konulacak from vektörü açıldı
-    let mut transaction_to: Vec<AccountInfo> = Vec::new(); // Transaction objesinin içine konulacak to vektörü açıldı
+    let mut transaction_from: Vec<AccountInfo> = Vec::new();
+    let mut transaction_to: Vec<AccountInfo> = Vec::new();
 
     let message = match &transaction.message {
         UiMessage::Parsed(_ui_parsed_message) => {
@@ -104,31 +77,44 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
         UiMessage::Raw(ui_raw_message) => ui_raw_message
     };
 
-    /***** Account adresleri burada alınıyor *****/
     let account_keys = &message.account_keys;
 
-    /***** SOL transactionları yazılıyor *****/
-    for (i, account_key) in account_keys.iter().enumerate() { // Tüm accountların balance değişimini hesaplamak için
-        /***** Amountlar burada hesaplanıyor *****/
-        let amount: f64 = (post_balances[i] as f64 - pre_balances[i] as f64) / (10_u32.pow(SOL_PRECISION) as f64);
+    let pre_balances = &meta.pre_balances;
+    let post_balances = &meta.post_balances;
+    let empty_vec = Vec::<UiTransactionTokenBalance>::new();
 
-        /***** AccountInfolar burada to/from vektörlerine pushlanıyor *****/
-        if amount < 0.0 { // Balance değişimi 0'dan küçükse from'a, 0'dan büyükse to'ya yazılıyor - 0 ise yazılmıyor
+    for (i, account_key) in account_keys.iter().enumerate() {
+        let diff = post_balances[i] as f64 - pre_balances[i] as f64;
+        let amount: f64 = adjust_precision(diff);
+
+        if amount < 0.0 {
             transaction_from.push(AccountInfo {
                 adress: account_key.clone(),
                 amount: -amount,
-                contract: None // SOL için contract None konuluyor
+                /// For SOL transactions, contract is None
+                contract: None 
             })
         } else if amount > 0.0 {
             transaction_to.push(AccountInfo {
                 adress: account_key.clone(),
                 amount: amount,
-                contract: None // SOL için contract None konuluyor
+                /// For SOL transactions, contract is None
+                contract: None 
             })
         }
     }
 
-    /***** Token transactionları yazılıyor *****/
+    let pre_token_balances = match &meta.pre_token_balances {
+        OptionSerializer::Some(balances) => balances,
+        OptionSerializer::None => &empty_vec,
+        OptionSerializer::Skip => &empty_vec,
+    };
+    let post_token_balances = match &meta.post_token_balances {
+        OptionSerializer::Some(balances) => balances,
+        OptionSerializer::None => &empty_vec,
+        OptionSerializer::Skip => &empty_vec,
+    };
+
     for post_token_balance in post_token_balances.iter() {
         let account_index = post_token_balance.account_index as usize;
         let mint = post_token_balance.clone().mint;
@@ -165,7 +151,7 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
                     }
                 },
                 amount: -amount,
-                contract: Some(mint) // Token adresi
+                contract: Some(mint)
             })
         } else if amount > 0.0 {
             transaction_to.push(AccountInfo {
@@ -178,7 +164,7 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
                     }
                 },
                 amount: amount,
-                contract: Some(mint) // Token adresi
+                contract: Some(mint)
             })
         }
     }
@@ -187,9 +173,16 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
         from: transaction_from,
         to: transaction_to,
         hash: transaction_hash,
-        status: transaction_status
+        status: transaction_status,
+        fee: transaction_fee,
+        block_hash: block_hash.to_string(),
+        block_height: block_slot
     });
   }
+}
+
+fn adjust_precision(val: f64) -> f64 {
+    (val as f64) / (10_u32.pow(SOL_PRECISION) as f64)
 }
 
 #[derive(Debug, Serialize, Deserialize)]

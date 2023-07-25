@@ -4,7 +4,7 @@ pub enum ResponseError {
     SendTransactionError {
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 400, content_type = "json")]
     CreateTransactionError{
         code: String
     },
@@ -16,39 +16,39 @@ pub enum ResponseError {
     CreateInstructionsArray{
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 404, content_type = "json")]
     GetBlockError{
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 404, content_type = "json")]
     GetBalanceError{
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 404, content_type = "json")]
     GetTransactionError{
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 400, content_type = "json")]
     StrToSignatureError{
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 404, content_type = "json")]
     TransactionMetaError{
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 501, content_type = "json")]
     EncodedTransactionTypeError{
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 501, content_type = "json")]
     TransactionMessageTypeError{
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 404, content_type = "json")]
     BalanceAmountError{
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 404, content_type = "json")]
     IndexError{
         code: String
     },
@@ -60,7 +60,7 @@ pub enum ResponseError {
     CreatePubkeyError{
         code: String
     },
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 400, content_type = "json")]
     CreateByteArrayError{
         code: String
     },
