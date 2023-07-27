@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use solana_transaction_status::UiTransactionTokenBalance;
 use solana_transaction_status::{EncodedTransactionWithStatusMeta, option_serializer::OptionSerializer, EncodedTransaction, UiMessage};
-
 use crate::errors::ResponseError;
 use crate::config::SOL_PRECISION;
 
@@ -35,11 +34,11 @@ pub struct TransactionInfo {
 }
 
 pub trait TransactionInfoConvertiable {
-  fn to_transaction_info(&self, block_slot: u64, hash: &String) -> Result<TransactionInfo, ResponseError>;
+  fn to_transaction_info(&self, block_slot: u64, hash: &str) -> Result<TransactionInfo, ResponseError>;
 }
 
 impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
-  fn to_transaction_info(&self, block_slot: u64, block_hash: &String) -> Result<TransactionInfo, ResponseError> {
+  fn to_transaction_info(&self, block_slot: u64, block_hash: &str) -> Result<TransactionInfo, ResponseError> {
     let meta = match &self.meta {
         Some(meta) => {
             meta
@@ -65,7 +64,7 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
         EncodedTransaction::Json(ui_transaction) => ui_transaction
     };
 
-    let transaction_hash = (&transaction.signatures[0]).to_string();
+    let transaction_hash = &transaction.signatures[0];
 
     let mut transaction_from: Vec<AccountInfo> = Vec::new();
     let mut transaction_to: Vec<AccountInfo> = Vec::new();
@@ -97,7 +96,7 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
         } else if amount > 0.0 {
             transaction_to.push(AccountInfo {
                 adress: account_key.clone(),
-                amount: amount,
+                amount,
                 /// For SOL transactions, contract is None
                 contract: None 
             })
@@ -163,26 +162,26 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
                         return Err(ResponseError::IndexError { code: "Index out of bounds for account_keys vector".to_string() });
                     }
                 },
-                amount: amount,
+                amount,
                 contract: Some(mint)
             })
         }
     }
 
-    return Ok(TransactionInfo {
+    Ok(TransactionInfo {
         from: transaction_from,
         to: transaction_to,
-        hash: transaction_hash,
+        hash: transaction_hash.to_string(),
         status: transaction_status,
         fee: transaction_fee,
         block_hash: block_hash.to_string(),
         block_height: block_slot
-    });
+    })
   }
 }
 
 fn adjust_precision(val: f64) -> f64 {
-    (val as f64) / (10_u32.pow(SOL_PRECISION) as f64)
+    (val) / (10_u32.pow(SOL_PRECISION) as f64)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -225,7 +224,11 @@ pub struct WalletResponse {
     #[serde(rename="privateKey")]
     pub private_key: String
 }
-
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContractResponse {
+    #[serde(rename="calculatedFee")]
+    pub calculated_fee: u64
+}
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfirmationCount {
     #[serde(rename="confirmationsCount")]

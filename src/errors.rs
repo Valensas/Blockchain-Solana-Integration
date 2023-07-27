@@ -1,4 +1,6 @@
-#[derive(Responder)]
+use rocket::serde;
+
+#[derive(Responder, serde::Serialize, serde::Deserialize)]
 pub enum ResponseError {
     #[response(status = 500, content_type = "json")]
     SendTransactionError {
@@ -82,6 +84,10 @@ pub enum ResponseError {
     },
     #[response(status = 500, content_type = "json")]
     CreateTransferError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    GetFeeError{
         code: String
     }
 }

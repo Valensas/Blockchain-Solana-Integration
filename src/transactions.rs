@@ -13,32 +13,32 @@ use crate::{errors::ResponseError, models::{TransactionInfoConvertiable, SendTra
 pub fn sign_transaction(
     transaction_parameters: Json<SignTransactionRequest>,
     rpc_client: &State<Arc<RpcClient>>
-) -> Result<Json<SignTransactionResponse>, ResponseError> {
+) -> Result<Json<SignTransactionResponse>, Json<ResponseError>> {
     
     if transaction_parameters.from.is_empty(){
-        return Err(ResponseError::EmptyError{code : "From part of the request is empty".to_string()});
+        return Err(Json(ResponseError::EmptyError{code : "From part of the request is empty".to_string()}));
     }
 
     if transaction_parameters.to.is_empty(){
-        return Err(ResponseError::EmptyError{code : "To part of the request is empty".to_string()});
+        return Err(Json(ResponseError::EmptyError{code : "To part of the request is empty".to_string()}));
     }
 
     let sender_address = Pubkey::from_str(&transaction_parameters.from[0].adress)
     .map_err(|err| {
         log::error!("Error during creating the Pubkey object: {}", err);
-        ResponseError::CreatePubkeyError{code : "Failed during creating the Pubkey object".to_string()}
+        Json(ResponseError::CreatePubkeyError{code : "Failed during creating the Pubkey object".to_string()})
     })?;
 
     let privkey = transaction_parameters.private_key.clone();
 
     let mut bytes_of_privatekey = privkey.from_base58().map_err(|err|{
         log::error!("Error during creating the byte array of private key: {}", err);
-        ResponseError::CreateByteArrayError{code: "Failed during creating the byte array of private key".to_string()}
+        Json(ResponseError::CreateByteArrayError{code: "Failed during creating the byte array of private key".to_string()})
     })?;
 
     let mut bytes_of_publickey = transaction_parameters.from[0].adress.from_base58().map_err(|err|{
         log::error!("Error during creating the byte array of public key: {}", err);
-        ResponseError::CreateByteArrayError{code: "Failed during creating the byte array of public key".to_string()}
+        Json(ResponseError::CreateByteArrayError{code: "Failed during creating the byte array of public key".to_string()})
     })?;
 
     bytes_of_privatekey.append(& mut bytes_of_publickey);
@@ -46,13 +46,13 @@ pub fn sign_transaction(
     let keypair: Keypair = Keypair::from_bytes(&bytes_of_privatekey)
     .map_err(|err|{
         log::error!("Error during creating the keypair: {}", err);
-        ResponseError::CreateKeypairError{code: "Failed during creating the keypair".to_string()}
+        Json(ResponseError::CreateKeypairError{code: "Failed during creating the keypair".to_string()})
     })?;
 
     let blockhash = rpc_client.get_latest_blockhash_with_commitment(CommitmentConfig::confirmed()) // Here we use CommitmentConfig::confirmed() to avoid risk of expiring Blockhash
     .map_err(|err| {
         log::error!("Error while getting the latest confirmed blockhash: {}", err);
-        ResponseError::GetBlockhashError{code: "Failed during getting the latest confirmed blockhash".to_string()}
+        Json(ResponseError::GetBlockhashError{code: "Failed during getting the latest confirmed blockhash".to_string()})
     })?;
 
 
@@ -61,30 +61,36 @@ pub fn sign_transaction(
             let to_address = Pubkey::from_str(&transfer_param.adress)
                 .map_err(|err| {
                     log::error!("Error during creating the Pubkey object: {}", err);
-                    ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() }
+                    Json(ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() })
                 })?;
         
             let amount = &transfer_param.amount;
 
             match transfer_param.contract.as_ref() {
                 Some(contract_str) => {
+
                     let contract = Pubkey::from_str(contract_str)
                         .map_err(|err| {
                             log::error!("Error during creating the Pubkey object: {}", err);
-                            ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() }
+                            Json(ResponseError::CreatePubkeyError { code: "Failed during creating the Pubkey object".to_string() })
                         })?;
-                    
-                    let instruction = transfer(&contract, &sender_address, &to_address, &sender_address, &[], *amount as u64)
+
+                    let instruction = transfer(&spl_token::id(), 
+                    &contract, 
+                    &to_address, 
+                    &sender_address,
+                    &[&sender_address],
+                    *amount as u64)
                         .map_err(|err| {
                             log::error!("Error during creating the transaction instruction: {}", err);
-                            ResponseError::CreateTransferError { code: "Failed during creating the transaction instruction".to_string() }
+                            Json(ResponseError::CreateTransferError { code: "Failed during creating the transaction instruction".to_string() })
                         })?;
                     Ok(instruction)
                 }
                 None => Ok(solana_sdk::system_instruction::transfer(&sender_address, &to_address, *amount as u64))
             }
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>, Json<_>>>()?;
         
         let tx = Transaction::new_signed_with_payer(
             &instructions,
@@ -99,11 +105,11 @@ pub fn sign_transaction(
         let signed_transaction = serde_json::to_string(&tx)
         .map_err(|err| {
             log::error!("Error getting latest block: {}", err);
-            ResponseError::ConvertTransactionError { code: "Failed during converting Transaction object to String".to_string() }
+            Json(ResponseError::ConvertTransactionError { code: "Failed during converting Transaction object to String".to_string() })
         })?;
         let response: SignTransactionResponse = SignTransactionResponse{
-            txn_hash: txn_hash,
-            signed_transaction: signed_transaction
+            txn_hash,
+            signed_transaction
         };
         
         Ok(Json(response))
@@ -114,18 +120,18 @@ pub fn sign_transaction(
 pub fn get_transaction_details(
     rpc_client: &State<Arc<RpcClient>>,
     txn_hash: &str
-) -> Result<Json<TransactionInfo>, ResponseError> {
+) -> Result<Json<TransactionInfo>, Json<ResponseError>> {
 
     let signature = Signature::from_str(txn_hash)
         .map_err(|err| {
             log::error!("Failed during converting txnHash (&str) to Signature: {}", err);
-            ResponseError::StrToSignatureError { code: "Failed during parsing signature".to_string() }
+            Json(ResponseError::StrToSignatureError { code: "Failed during parsing signature".to_string() })
         })?;
     
     let conf_transaction = rpc_client.get_transaction(&signature, UiTransactionEncoding::Json)
         .map_err(|err| {
             log::error!("Failed during getting the transaction with given hash: {}", err);
-            ResponseError::GetTransactionError { code: "Failed during getting the transaction with given hash".to_string() }
+            Json(ResponseError::GetTransactionError { code: "Failed during getting the transaction with given hash".to_string() })
         })?;
 
     let block_slot = conf_transaction.slot;
@@ -133,7 +139,7 @@ pub fn get_transaction_details(
         .map(|block| block.blockhash)
         .map_err(|err| {
             log::error!("Failed during getting the block with given slot: {}", err);
-            ResponseError::GetBlockError { code: "Failed during getting the block with given slot".to_string() }
+            Json(ResponseError::GetBlockError { code: "Failed during getting the block with given slot".to_string() })
         })?;
 
     let transaction_meta = conf_transaction.transaction;
@@ -146,12 +152,12 @@ pub fn get_transaction_details(
 pub fn send_transaction(
     transaction_parameters: Json<SendTransactionRequest>,
     rpc_client: &State<Arc<RpcClient>>
-) -> Result<Json<SendTransactionResponse>, ResponseError> {
+) -> Result<Json<SendTransactionResponse>, Json<ResponseError>> {
 
     let tx = serde_json::from_str::<Transaction>(&transaction_parameters.signed_transaction)
         .map_err(|err|{
             log::error!("Error while creating the transaction object: {}", err);
-            ResponseError::CreateTransactionError { code: "Failed during creating the transaction object".to_string() }
+            Json(ResponseError::CreateTransactionError { code: "Failed during creating the transaction object".to_string() })
         } )?;
 
     rpc_client
@@ -163,7 +169,7 @@ pub fn send_transaction(
         )
         .map_err(|err| {
             log::error!("Error while sending the transaction: {}", err);
-            ResponseError::SendTransactionError { code: "Failed during sending the transaction".to_string() } 
+            Json(ResponseError::SendTransactionError { code: "Failed during sending the transaction".to_string() } )
         })
 }
 
@@ -171,24 +177,24 @@ pub fn send_transaction(
 pub fn get_confirmation_count(    
     rpc_client: &State<Arc<RpcClient>>,
     txn_hash: &str
-) -> Result<Json<ConfirmationCount>, ResponseError> {
+) -> Result<Json<ConfirmationCount>, Json<ResponseError>> {
     let signature = Signature::from_str(txn_hash)
         .map_err(|err| {
             log::error!("Failed during converting txnHash (&str) to Signature: {}", err);
-            ResponseError::StrToSignatureError { code: "Failed during parsing signature".to_string() }
+            Json(ResponseError::StrToSignatureError { code: "Failed during parsing signature".to_string() })
         })?;
     
     let block_slot = rpc_client.get_transaction(&signature, UiTransactionEncoding::Json)
         .map(|transaction| transaction.slot)
         .map_err(|err| {
             log::error!("Failed during getting the transaction with given hash: {}", err);
-            ResponseError::GetTransactionError { code: "Failed during getting the transaction with given hash".to_string() }
+            Json(ResponseError::GetTransactionError { code: "Failed during getting the transaction with given hash".to_string() })
         })?;
     
     let block = rpc_client.get_block(block_slot)
         .map_err(|err| {
             log::error!("Failed during getting the block with given slot: {}", err);
-            ResponseError::GetBlockError { code: "Failed during getting the block with given slot".to_string() }
+            Json(ResponseError::GetBlockError { code: "Failed during getting the block with given slot".to_string() })
         })?;
 
     let block_height = match block.block_height {
@@ -196,14 +202,14 @@ pub fn get_confirmation_count(
             height
         },
         None => {
-            return Err(ResponseError::GetBlockHeightError { code: "Failed during getting the height of the given block".to_string() });
+            return Err(Json(ResponseError::GetBlockHeightError { code: "Failed during getting the height of the given block".to_string() }));
         }
     };
 
     let latest_block_height = rpc_client.get_block_height()
         .map_err(|err| {
             log::error!("Failed during getting the latest block height: {}", err);
-            ResponseError::GetBlockHeightError { code: "Failed during getting the latest block height".to_string() }
+            Json(ResponseError::GetBlockHeightError { code: "Failed during getting the latest block height".to_string() })
         })?;
 
     Ok(Json(ConfirmationCount { 
