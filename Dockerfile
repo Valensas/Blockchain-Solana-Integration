@@ -12,10 +12,4 @@ COPY ./src ./src
 
 RUN cargo build --release
 
-FROM alpine
-
-COPY --from=build ./target ./target
-
-EXPOSE 8000
-
-CMD ["cargo run"]
+CMD ["./target/release/blockchain-solana"]
