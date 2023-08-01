@@ -3,6 +3,13 @@ use solana_transaction_status::UiTransactionTokenBalance;
 use solana_transaction_status::{EncodedTransactionWithStatusMeta, option_serializer::OptionSerializer, EncodedTransaction, UiMessage};
 use crate::errors::ResponseError;
 use crate::config::SOL_PRECISION;
+use std::{sync::{Arc, RwLock},time::Instant};
+use prometheus::{opts, HistogramVec, IntCounterVec, Registry};
+use rocket::{
+    fairing::{Fairing, Info, Kind},
+    Data, Request, Response,
+    serde::json::Json
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Block {
@@ -233,4 +240,154 @@ pub struct ContractResponse {
 pub struct ConfirmationCount {
     #[serde(rename="confirmationsCount")]
     pub confirmations_count: u64
+}
+
+pub struct PrometheusMetrics{
+    http_request_count: IntCounterVec,
+    http_request_durations: HistogramVec,
+    registry: Registry
+}
+
+impl PrometheusMetrics{
+    pub fn new(namespace: &str) -> Result<Self, Json<ResponseError>>{
+        let registry = Registry::new();
+
+        let http_request_count_opts = opts!(
+            "http_request_count", 
+            "Total number of HTTP requests"
+        ).namespace(namespace);
+
+        let http_request_count = IntCounterVec::new(
+            http_request_count_opts,
+            &["endpoint", "method", "status"]
+        ).map_err(|err| {
+            log::error!("Error while creating the IntCounterVec for prometheus: {}", err);
+            Json(ResponseError::PrometheusError{code: "CREATE_INTCOUNTER_ERROR".to_string()})
+        })?;
+
+        let http_request_durations_opts = opts!(
+            "http_request_durations", 
+            "HTTP request duration in seconds for all requests"
+        ).namespace(namespace);
+
+        let http_request_durations = HistogramVec::new(
+            http_request_durations_opts.into(),
+            &["endpoint", "method", "status"],
+        ).map_err(|err| {
+            log::error!("Error while creating the HistogramVec for prometheus: {}", err);
+            Json(ResponseError::PrometheusError{code: "CREATE_HISTOGRAMVEC_ERROR".to_string()})
+        })?;
+
+        registry.register(Box::new(http_request_count.clone())).map_err(|err| {
+            log::error!("Error while adding the IntCounterVec to the register: {}", err);
+            Json(ResponseError::PrometheusError{code: "ADD_INTCOUNTER_ERROR".to_string()})
+        })?;
+        registry.register(Box::new(http_request_durations.clone())).map_err(|err|{
+            log::error!("Error while adding the HistogramVec to the register: {}", err);
+            Json(ResponseError::PrometheusError{code: "ADD_HISTOGRAMVEC_ERROR".to_string()})
+        })?;
+
+        Ok(Self { http_request_count, http_request_durations, registry})
+    }
+
+    pub const fn registry(&self) -> &Registry {
+        &self.registry
+    }
+
+    pub fn http_requests_count(&self) -> &IntCounterVec {
+        &self.http_request_count
+    }
+
+    pub fn http_request_durations(&self) -> &HistogramVec {
+        &self.http_request_durations
+    }
+
+}
+
+impl Clone for PrometheusMetrics{
+    fn clone(&self) -> Self{
+        Self { http_request_count: self.http_request_count.clone(),
+               http_request_durations: self.http_request_durations.clone(),
+               registry: self.registry.clone()
+        }
+    }
+}
+
+
+pub trait ArcRwLockPrometheusTrait {
+    type ArcRwLock;
+    fn clone(&self) -> Arc<RwLock<PrometheusMetrics>>;
+}
+
+pub struct ArcRwLockPrometheus {
+    pub rw_lock: Arc<RwLock<PrometheusMetrics>>,
+}
+
+impl ArcRwLockPrometheus {
+    pub fn new(prometheus: Arc<RwLock<PrometheusMetrics>>) -> Self {
+        Self {
+            rw_lock: prometheus,
+        }
+    }
+}
+
+impl Clone for ArcRwLockPrometheus {
+    fn clone(&self) -> Self {
+        Self {
+            rw_lock: Arc::clone(&self.rw_lock),
+        }
+    }
+}
+
+impl ArcRwLockPrometheusTrait for ArcRwLockPrometheus {
+    type ArcRwLock = Arc<RwLock<PrometheusMetrics>>;
+
+    fn clone(&self) -> Arc<RwLock<PrometheusMetrics>> {
+        Arc::clone(&self.rw_lock)
+    }
+}
+
+
+#[derive(Copy, Clone)]
+struct TimerStart(Option<Instant>);
+
+#[rocket::async_trait]
+impl Fairing for ArcRwLockPrometheus {
+    fn info(&self) -> Info {
+        Info {
+            name: "Prometheus metric collection",
+            kind: Kind::Request | Kind::Response,
+        }
+    }
+
+    async fn on_request(&self, req: &mut Request<'_>, _: &mut Data<'_>) {
+        req.local_cache(|| TimerStart(Some(Instant::now())));
+    }
+
+    async fn on_response<'r>(&self, req: &'r Request<'_>, response: &mut Response<'r>) {
+        if req.route().is_none() {
+            return;
+        }
+
+        let endpoint = req.route().unwrap().uri.as_str();
+        let method = req.method().as_str();
+        let status = response.status().code.to_string();
+        self.rw_lock
+            .read()
+            .unwrap()
+            .http_request_count
+            .with_label_values(&[endpoint, method, status.as_str()])
+            .inc();
+
+        let start_time = req.local_cache(|| TimerStart(None));
+        if let Some(duration) = start_time.0.map(|st| st.elapsed()) {
+            let duration_secs = duration.as_secs_f64();
+            self.rw_lock
+                .read()
+                .unwrap()
+                .http_request_durations
+                .with_label_values(&[endpoint, method, status.as_str()])
+                .observe(duration_secs);
+        }
+    }
 }

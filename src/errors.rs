@@ -1,6 +1,6 @@
 use rocket::serde;
 
-#[derive(Responder, serde::Serialize, serde::Deserialize)]
+#[derive(Responder, serde::Serialize, serde::Deserialize, Debug)]
 pub enum ResponseError {
     #[response(status = 500, content_type = "json")]
     SendTransactionError {
@@ -88,6 +88,10 @@ pub enum ResponseError {
     },
     #[response(status = 500, content_type = "json")]
     GetFeeError{
+        code: String
+    },
+    #[response(status = 500, content_type = "json")]
+    PrometheusError{
         code: String
     }
 }
