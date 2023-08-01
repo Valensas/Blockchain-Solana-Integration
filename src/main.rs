@@ -9,7 +9,7 @@ pub mod wallets;
 pub mod network;
 
 use solana_client::rpc_client::RpcClient;
-use std::sync::Arc;
+use std::{sync::Arc, net::Ipv4Addr};
 
 #[rocket::main]
 async fn main() {
@@ -19,8 +19,13 @@ async fn main() {
     let rpc_url = "https://api.devnet.solana.com".to_string(); // Linki ekledik
     let rpc_client = Arc::new(RpcClient::new(rpc_url));
 
-    let rocket = match rocket::build()
-    .mount("/", routes![
+    let config = rocket::Config {
+         address: Ipv4Addr::new(0, 0, 0, 0).into(),
+         ..rocket::Config::debug_default()
+     };
+
+    let rocket = match rocket::custom(config)
+        .mount("/", routes![
         blocks::get_latest_block,
         blocks::scan_block_transactions_from_slot,
         transactions::sign_transaction,
@@ -41,6 +46,7 @@ async fn main() {
             return;
         },
     };
+
 
     // End State
     match rocket.launch().await {
