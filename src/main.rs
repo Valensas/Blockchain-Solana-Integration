@@ -7,9 +7,11 @@ pub mod config;
 pub mod transactions;
 pub mod wallets;
 pub mod network;
+pub mod management;
 
 use solana_client::rpc_client::RpcClient;
-use std::{sync::Arc, net::Ipv4Addr};
+use std::{sync::{Arc, RwLock}, net::Ipv4Addr,};
+use crate::models::{PrometheusMetrics, ArcRwLockPrometheus};
 
 #[rocket::main]
 async fn main() {
@@ -24,6 +26,9 @@ async fn main() {
          ..rocket::Config::debug_default()
      };
 
+    let prometheus = Arc::new(RwLock::new(PrometheusMetrics::new("blockchain_solana").unwrap()));
+    let prometheus_fairing = ArcRwLockPrometheus::new(prometheus.clone());
+
     let rocket = match rocket::custom(config)
         .mount("/", routes![
         blocks::get_latest_block,
@@ -34,9 +39,13 @@ async fn main() {
         transactions::get_confirmation_count,
         wallets::get_wallet_balance,
         wallets::create_wallet_address,
-        network::get_calculated_fee
+        network::get_calculated_fee,
+        management::metrics
     ])
-    .manage(rpc_client).ignite().await {
+    .attach(prometheus_fairing.clone())
+    .manage(rpc_client)
+    .manage(prometheus_fairing)
+    .ignite().await {
         Ok(rocket) => {
             log::info!("Server started gracefully");
             rocket
