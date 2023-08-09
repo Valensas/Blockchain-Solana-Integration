@@ -80,13 +80,10 @@ pub fn sign_transaction(
                 log::info!("len vec: {}", rpc_account.len());
 
                 let parsed_account = match rpc_account[0].account.data.clone(){
-                    UiAccountData::Binary(_, _) => {
-                        return Err(ResponseError::UiAccountDataTypeError(Json(Code{ code: "UiAccountData type Binary not implemented".to_string() })));
+                    UiAccountData::Json(parsed_account) => parsed_account,
+                    _ => {
+                        return Err(ResponseError::UiAccountDataTypeError(Json(Code{ code: "UiAccountData type Binary and LegacyBinary not implemented".to_string() })));
                     }
-                    UiAccountData::LegacyBinary(_) => {
-                        return Err(ResponseError::UiAccountDataTypeError(Json(Code{ code: "UiAccountData type LegacyBinary not implemented".to_string() })));
-                    }
-                    UiAccountData::Json(parsed_account) => parsed_account
                 };
                 log::info!("{}",parsed_account.parsed.get("info").unwrap().get("tokenAmount").unwrap());
 
