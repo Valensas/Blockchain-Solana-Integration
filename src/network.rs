@@ -1,19 +1,19 @@
 use std::sync::Arc;
 use rocket::{State, serde::json::Json};
-use crate::{errors::ResponseError, models::ContractResponse};
+use crate::{errors::{ResponseError, Code}, models::ContractResponse};
 use spl_token::instruction::transfer;
 use solana_program::instruction::Instruction;
 use solana_sdk::{message::Message, pubkey::Pubkey};
 use solana_client::rpc_client::RpcClient;
 use std::str::FromStr;
 
-fn calculate_fee(instruction: Instruction, rpc_client: Arc<RpcClient>, sender_address: Option<&Pubkey>) -> Result<Json<ContractResponse>, Json<ResponseError>>{
+fn calculate_fee(instruction: Instruction, rpc_client: Arc<RpcClient>, sender_address: Option<&Pubkey>) -> Result<Json<ContractResponse>, ResponseError>{
     let instructions: [Instruction; 1] = [instruction];
     let message: Message = Message::new_with_blockhash(&instructions, sender_address, &rpc_client.get_latest_blockhash().unwrap());
     let calculated_fee = rpc_client.get_fee_for_message(&message)
     .map_err(|err| {
         log::error!("Error while getting the fee: {}", err);
-        Json(ResponseError::GetFeeError{code: "Error while getting the fee".to_string()})
+        ResponseError::GetFeeError(Json(Code {code: "Error while getting the fee".to_string()}))
     })?;
     Ok(Json(ContractResponse { calculated_fee }))
 }
@@ -22,7 +22,7 @@ fn calculate_fee(instruction: Instruction, rpc_client: Arc<RpcClient>, sender_ad
 pub fn get_calculated_fee(
     contract: Option<String>,
     rpc_client: &State<Arc<RpcClient>>
-) -> Result<Json<ContractResponse>, Json<ResponseError>> {
+) -> Result<Json<ContractResponse>, ResponseError> {
     let sender_address: Pubkey = Pubkey::new_unique();
     let to_address: Pubkey = Pubkey::new_unique();
 
@@ -30,8 +30,8 @@ pub fn get_calculated_fee(
         Some(contract_str) => {
             let contract_address: Pubkey = Pubkey::from_str(&contract_str)
             .map_err(|err| {
-                log::error!("Error while creating the pubkey: {}", err);
-                Json(ResponseError::CreatePubkeyError {code: "Error while creating the pubkey".to_string()})
+                log::error!("Error while creating the Pubkey object from the contract address: {}", err);
+                ResponseError::CreatePubkeyError (Json(Code{code: "Error while creating the Pubkey object from the contract address".to_string()}))
             })?;
 
 
@@ -44,7 +44,7 @@ pub fn get_calculated_fee(
             1)
             .map_err(|err| {
                 log::error!("Error while creating the transfer: {}", err);
-                Json(ResponseError::CreateTransferError{code: "Error while creating the transfer".to_string()})
+                ResponseError::CreateTransferError(Json(Code{code: "Error while creating the transfer".to_string()}))
             })?;
             calculate_fee(instruction, rpc_client.inner().clone(), Some(&sender_address))
         },

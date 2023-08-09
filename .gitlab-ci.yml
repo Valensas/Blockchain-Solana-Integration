@@ -1,23 +1,26 @@
+image: rust:1.70
+
 stages:
   - lint_test
   - build
 
 lint_test:
     stage: lint_test
-    image: rust:1.70
-    script:
-        - echo "Linting"
-        - rustup component add clippy
-        - cargo clippy -- -Dwarnings
-        - echo "Testing"
-        - cargo test --verbose
-
-build:
-    stage: build
-    image: rust:1.70
     cache:
         paths:
             - target/
     script:
+        - rustup component add clippy
+        - cargo clippy -- -Dwarnings
+        - echo "Testing"
+        - cargo test --verbose
+    
+
+build:
+    stage: build
+    script:
         - echo "Building"
         - cargo build --verbose
+    cache:
+        paths:
+            - target/
