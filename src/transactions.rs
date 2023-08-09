@@ -8,8 +8,7 @@ use solana_transaction_status::{UiTransactionEncoding, TransactionDetails};
 use spl_token::instruction::transfer;
 use solana_program::instruction::Instruction;
 use crate::{errors::{ResponseError, Code}, models::{TransactionInfoConvertiable, SendTransactionRequest, SendTransactionResponse, SignTransactionRequest, SignTransactionResponse, TransactionInfo, ConfirmationCount}};
-use solana_account_decoder::{UiAccountData, parse_account_data::ParsedAccount};
-use serde_json::json;
+use solana_account_decoder::UiAccountData;
 
 #[post("/transactions/sign", data = "<transaction_parameters>")]
 pub fn sign_transaction(
@@ -82,22 +81,10 @@ pub fn sign_transaction(
 
                 let parsed_account = match rpc_account[0].account.data.clone(){
                     UiAccountData::Binary(_, _) => {
-                        ParsedAccount{program: "".to_string(), parsed: json!(r#""info": {
-                            "tokenAmount": {
-                              "amount": "1",
-                              "decimals": 1,
-                              "uiAmount": 0.1,
-                              "uiAmountString": "0.1"
-                            }"#), space: 0}
+                        return Err(ResponseError::UiAccountDataTypeError(Json(Code{ code: "UiAccountData type Binary not implemented".to_string() })));
                     }
                     UiAccountData::LegacyBinary(_) => {
-                        ParsedAccount{program: "".to_string(), parsed: json!(r#""info": {
-                            "tokenAmount": {
-                              "amount": "1",
-                              "decimals": 1,
-                              "uiAmount": 0.1,
-                              "uiAmountString": "0.1"
-                            }"#), space: 0}
+                        return Err(ResponseError::UiAccountDataTypeError(Json(Code{ code: "UiAccountData type LegacyBinary not implemented".to_string() })));
                     }
                     UiAccountData::Json(parsed_account) => parsed_account
                 };

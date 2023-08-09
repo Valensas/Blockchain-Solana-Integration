@@ -80,5 +80,8 @@ pub enum ResponseError {
     PrometheusError(Json<Code>),
 
     #[response(status = 500, content_type = "json")]
-    ConvertUiAmountError(Json<Code>)
+    ConvertUiAmountError(Json<Code>),
+
+    #[response(status = 501, content_type = "json")]
+    UiAccountDataTypeError(Json<Code>)
 }

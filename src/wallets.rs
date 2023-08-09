@@ -5,9 +5,7 @@ use rocket::{State, serde::json::Json};
 use bs58;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 use std::str::FromStr;
-use serde_json::json;
 use solana_account_decoder::UiAccountData;
-use solana_account_decoder::parse_account_data::ParsedAccount;
 
 #[get("/address/<address>/balance?<contract>")]
 pub fn get_wallet_balance(address: &str, contract: Option<String>,rpc_client: &State<Arc<RpcClient>>) -> Result<Json<Balance>, ResponseError>{
@@ -43,26 +41,13 @@ pub fn get_wallet_balance(address: &str, contract: Option<String>,rpc_client: &S
 
                 let parsed_account = match rpc_account[0].account.data.clone(){
                     UiAccountData::Binary(_, _) => {
-                        ParsedAccount{program: "".to_string(), parsed: json!(r#""info": {
-                            "tokenAmount": {
-                              "amount": "1",
-                              "decimals": 1,
-                              "uiAmount": 0.1,
-                              "uiAmountString": "0.1"
-                            }"#), space: 0}
-                    }
+                        return Err(ResponseError::UiAccountDataTypeError(Json(Code{ code: "UiAccountData type Binary not implemented".to_string() })));
+                    },
                     UiAccountData::LegacyBinary(_) => {
-                        ParsedAccount{program: "".to_string(), parsed: json!(r#""info": {
-                            "tokenAmount": {
-                              "amount": "1",
-                              "decimals": 1,
-                              "uiAmount": 0.1,Jso
-                              "uiAmountString": "0.1"
-                            }"#), space: 0}
-                    }
+                        return Err(ResponseError::UiAccountDataTypeError(Json(Code{ code: "UiAccountData type LegacyBinary not implemented".to_string() })));
+                    },
                     UiAccountData::Json(parsed_account) => parsed_account
                 };
-                log::info!("{}",parsed_account.parsed.get("info").unwrap().get("tokenAmount").unwrap());
 
                 match parsed_account.parsed.get("info"){
                     Some(info) => {
