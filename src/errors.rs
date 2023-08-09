@@ -1,97 +1,84 @@
-use rocket::serde;
+use rocket::serde::{self, json::Json};
 
-#[derive(Responder, serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct Code {
+    pub code: String
+}
+
+#[derive(Responder, Debug)]
 pub enum ResponseError {
     #[response(status = 500, content_type = "json")]
-    SendTransactionError {
-        code: String
-    },
+    SendTransactionError(Json<Code>),
+
     #[response(status = 400, content_type = "json")]
-    CreateTransactionError{
-        code: String
-    },
+    CreateTransactionError(Json<Code>),
+
     #[response(status = 500, content_type = "json")]
-    LatestSlotError{
-        code: String
-    },
+    LatestSlotError(Json<Code>),
+
     #[response(status = 500, content_type = "json")]
-    CreateInstructionsArray{
-        code: String
-    },
+    CreateInstructionsArray(Json<Code>),
+
     #[response(status = 404, content_type = "json")]
-    GetBlockError{
-        code: String
-    },
+    GetBlockError(Json<Code>),
+
     #[response(status = 404, content_type = "json")]
-    GetBalanceError{
-        code: String
-    },
+    GetBalanceError(Json<Code>),
+
     #[response(status = 404, content_type = "json")]
-    GetTransactionError{
-        code: String
-    },
+    GetTransactionError(Json<Code>),
+
     #[response(status = 404, content_type = "json")]
-    GetBlockHeightError{
-        code: String
-    },
+    GetBlockHeightError(Json<Code>),
+
     #[response(status = 400, content_type = "json")]
-    StrToSignatureError{
-        code: String
-    },
+    StrToSignatureError(Json<Code>),
+
     #[response(status = 404, content_type = "json")]
-    TransactionMetaError{
-        code: String
-    },
+    TransactionMetaError(Json<Code>),
+
+    #[response(status = 404, content_type = "json")]
+    BlockTransactionsError(Json<Code>),
+
     #[response(status = 501, content_type = "json")]
-    EncodedTransactionTypeError{
-        code: String
-    },
+    EncodedTransactionTypeError(Json<Code>),
+
     #[response(status = 501, content_type = "json")]
-    TransactionMessageTypeError{
-        code: String
-    },
+    TransactionMessageTypeError(Json<Code>),
+
     #[response(status = 404, content_type = "json")]
-    BalanceAmountError{
-        code: String
-    },
+    BalanceAmountError(Json<Code>),
+
     #[response(status = 404, content_type = "json")]
-    IndexError{
-        code: String
-    },
+    IndexError(Json<Code>),
+
     #[response(status = 500, content_type = "json")]
-    EmptyError{
-        code: String
-    },
+    EmptyError(Json<Code>),
+
     #[response(status = 500, content_type = "json")]
-    CreatePubkeyError{
-        code: String
-    },
+    CreatePubkeyError(Json<Code>),
+
     #[response(status = 400, content_type = "json")]
-    CreateByteArrayError{
-        code: String
-    },
+    CreateByteArrayError(Json<Code>),
+
     #[response(status = 500, content_type = "json")]
-    CreateKeypairError{
-        code: String
-    },
+    CreateKeypairError(Json<Code>),
+
     #[response(status = 500, content_type = "json")]
-    GetBlockhashError{
-        code: String
-    },
+    GetBlockhashError(Json<Code>),
+
     #[response(status = 500, content_type = "json")]
-    ConvertTransactionError{
-        code: String
-    },
+    ConvertTransactionError(Json<Code>),
+
     #[response(status = 500, content_type = "json")]
-    CreateTransferError{
-        code: String
-    },
+    CreateTransferError(Json<Code>),
+    
     #[response(status = 500, content_type = "json")]
-    GetFeeError{
-        code: String
-    },
+    GetFeeError(Json<Code>),
+
     #[response(status = 500, content_type = "json")]
-    PrometheusError{
-        code: String
-    }
+    PrometheusError(Json<Code>),
+
+    #[response(status = 500, content_type = "json")]
+    ConvertUiAmountError(Json<Code>)
 }

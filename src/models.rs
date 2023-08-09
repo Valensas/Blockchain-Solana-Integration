@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use solana_transaction_status::UiTransactionTokenBalance;
 use solana_transaction_status::{EncodedTransactionWithStatusMeta, option_serializer::OptionSerializer, EncodedTransaction, UiMessage};
-use crate::errors::ResponseError;
+use crate::errors::{ResponseError, Code};
 use crate::config::SOL_PRECISION;
 use std::{sync::{Arc, RwLock},time::Instant};
 use prometheus::{opts, HistogramVec, IntCounterVec, Registry};
@@ -51,22 +51,27 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
             meta
         },
         None => {
-            return Err(ResponseError::TransactionMetaError { code: "Failed during getting the meta from given transaction".to_string() });
+            return Err(ResponseError::TransactionMetaError(Json(Code { code: "Failed during getting the meta from given transaction".to_string() })));
         }
     };
 
-    let transaction_status = meta.status.is_ok().to_string();
+    let transaction_status = if meta.status.is_ok() {
+        "Success".to_string()
+    } else {
+        "Failed".to_string()
+    };
+
     let transaction_fee = adjust_precision(meta.fee as f64);
 
     let transaction = match &self.transaction {
         EncodedTransaction::LegacyBinary(_legacy_binary) => {
-            return Err(ResponseError::EncodedTransactionTypeError { code: "Encoded transaction type LegacyBinary not implemented".to_string() });
+            return Err(ResponseError::EncodedTransactionTypeError(Json(Code{ code: "Encoded transaction type LegacyBinary not implemented".to_string() })));
         },
         EncodedTransaction::Binary(_binary, _encoding) => {
-            return Err(ResponseError::EncodedTransactionTypeError { code: "Encoded transaction type Binary not implemented".to_string() });
+            return Err(ResponseError::EncodedTransactionTypeError(Json(Code{ code: "Encoded transaction type Binary not implemented".to_string() })));
         },
         EncodedTransaction::Accounts(_ui_accounts_list) => {
-            return Err(ResponseError::EncodedTransactionTypeError { code: "Encoded transaction type Accounts not implemented".to_string() });
+            return Err(ResponseError::EncodedTransactionTypeError(Json(Code{ code: "Encoded transaction type Accounts not implemented".to_string() })));
         },
         EncodedTransaction::Json(ui_transaction) => ui_transaction
     };
@@ -78,7 +83,7 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
 
     let message = match &transaction.message {
         UiMessage::Parsed(_ui_parsed_message) => {
-            return Err(ResponseError::TransactionMessageTypeError { code: "Transaction message type Parsed not implemented".to_string() });
+            return Err(ResponseError::TransactionMessageTypeError (Json(Code{ code: "Transaction message type Parsed not implemented".to_string() })));
         },
         UiMessage::Raw(ui_raw_message) => ui_raw_message
     };
@@ -129,7 +134,7 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
                 ui_amount
             },
             None => {
-                return Err(ResponseError::BalanceAmountError { code: "Failed during getting the amount from token balance".to_string() });
+                return Err(ResponseError::BalanceAmountError (Json(Code { code: "Failed during getting the amount from token balance".to_string() })));
             }
         };
 
@@ -140,7 +145,7 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
                         ui_amount
                     },
                     None => {
-                        return Err(ResponseError::BalanceAmountError { code: "Failed during getting the amount from token balance".to_string() });
+                        return Err(ResponseError::BalanceAmountError (Json(Code { code: "Failed during getting the amount from token balance".to_string() })));
                     }
                 };
             }
@@ -153,7 +158,7 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
                         address.clone()
                     },
                     None => {
-                        return Err(ResponseError::IndexError { code: "Index out of bounds for account_keys vector".to_string() });
+                        return Err(ResponseError::IndexError (Json(Code{code: "Index out of bounds for account_keys vector".to_string() })));
                     }
                 },
                 amount: -amount,
@@ -166,7 +171,7 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
                         address.clone()
                     },
                     None => {
-                        return Err(ResponseError::IndexError { code: "Index out of bounds for account_keys vector".to_string() });
+                        return Err(ResponseError::IndexError (Json(Code { code: "Index out of bounds for account_keys vector".to_string() })));
                     }
                 },
                 amount,
@@ -222,7 +227,7 @@ pub struct SignTransactionResponse {
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Balance {
-    pub balance: u64
+    pub balance: f64
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -249,7 +254,7 @@ pub struct PrometheusMetrics{
 }
 
 impl PrometheusMetrics{
-    pub fn new(namespace: &str) -> Result<Self, Json<ResponseError>>{
+    pub fn new(namespace: &str) -> Result<Self, ResponseError>{
         let registry = Registry::new();
 
         let http_request_count_opts = opts!(
@@ -262,7 +267,7 @@ impl PrometheusMetrics{
             &["endpoint", "method", "status"]
         ).map_err(|err| {
             log::error!("Error while creating the IntCounterVec for prometheus: {}", err);
-            Json(ResponseError::PrometheusError{code: "CREATE_INTCOUNTER_ERROR".to_string()})
+            ResponseError::PrometheusError(Json(Code {code: "CREATE_INTCOUNTER_ERROR".to_string()}))
         })?;
 
         let http_request_durations_opts = opts!(
@@ -275,16 +280,16 @@ impl PrometheusMetrics{
             &["endpoint", "method", "status"],
         ).map_err(|err| {
             log::error!("Error while creating the HistogramVec for prometheus: {}", err);
-            Json(ResponseError::PrometheusError{code: "CREATE_HISTOGRAMVEC_ERROR".to_string()})
+            ResponseError::PrometheusError(Json(Code {code: "CREATE_HISTOGRAMVEC_ERROR".to_string()}))
         })?;
 
         registry.register(Box::new(http_request_count.clone())).map_err(|err| {
             log::error!("Error while adding the IntCounterVec to the register: {}", err);
-            Json(ResponseError::PrometheusError{code: "ADD_INTCOUNTER_ERROR".to_string()})
+            ResponseError::PrometheusError(Json(Code{code: "ADD_INTCOUNTER_ERROR".to_string()}))
         })?;
         registry.register(Box::new(http_request_durations.clone())).map_err(|err|{
             log::error!("Error while adding the HistogramVec to the register: {}", err);
-            Json(ResponseError::PrometheusError{code: "ADD_HISTOGRAMVEC_ERROR".to_string()})
+            ResponseError::PrometheusError(Json(Code{code: "ADD_HISTOGRAMVEC_ERROR".to_string()}))
         })?;
 
         Ok(Self { http_request_count, http_request_durations, registry})
