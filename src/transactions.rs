@@ -2,13 +2,12 @@ use std::{sync::Arc, str::FromStr};
 
 use rust_base58::FromBase58;
 use rocket::{State, serde::json::Json};
-use solana_client::{rpc_client::RpcClient, rpc_config::RpcBlockConfig, rpc_request::TokenAccountsFilter};
+use solana_client::{rpc_client::RpcClient, rpc_config::RpcBlockConfig};
 use solana_sdk::{signature::Signature, transaction::Transaction, pubkey::Pubkey, signature::Keypair, commitment_config::CommitmentConfig};
 use solana_transaction_status::{UiTransactionEncoding, TransactionDetails};
 use spl_token::instruction::transfer;
 use solana_program::instruction::Instruction;
 use crate::{errors::{ResponseError, Code}, models::{TransactionInfoConvertiable, SendTransactionRequest, SendTransactionResponse, SignTransactionRequest, SignTransactionResponse, TransactionInfo, ConfirmationCount}};
-use solana_account_decoder::UiAccountData;
 
 #[post("/transactions/sign", data = "<transaction_parameters>")]
 pub fn sign_transaction(
@@ -55,85 +54,6 @@ pub fn sign_transaction(
         log::error!("Error while getting the latest confirmed blockhash: {}", err);
         ResponseError::GetBlockhashError(Json(Code{code: "Failed during getting the latest confirmed blockhash".to_string()}))
     })?;
-
-    let balance = match transaction_parameters.from[0].contract.as_ref(){
-        Some(c_address) =>{
-
-            let contract_address = Pubkey::from_str(c_address)
-                .map_err(|err| {
-                log::error!("Error while creating the Pubkey object from contract address: {}", err);
-                ResponseError::CreatePubkeyError(Json(Code{code: "Error while creating the Pubkey object from contract address".to_string()}))       
-            })?;
-            
-            
-            let rpc_account = rpc_client.get_token_accounts_by_owner(&sender_address, TokenAccountsFilter::Mint(contract_address))
-                        .map_err(|err| {
-                        log::error!("Failed during getting the balance: {}", err);
-                        ResponseError::GetBalanceError (Json(Code{ code : "Failed during getting the balance of a wallet".to_string() }))
-                    })?;
-
-            if rpc_account.is_empty(){
-                0 as f64
-            }
-            
-            else{
-                log::info!("len vec: {}", rpc_account.len());
-
-                let parsed_account = match rpc_account[0].account.data.clone(){
-                    UiAccountData::Json(parsed_account) => parsed_account,
-                    _ => {
-                        return Err(ResponseError::UiAccountDataTypeError(Json(Code{ code: "UiAccountData type Binary and LegacyBinary not implemented".to_string() })));
-                    }
-                };
-                log::info!("{}",parsed_account.parsed.get("info").unwrap().get("tokenAmount").unwrap());
-
-                match parsed_account.parsed.get("info"){
-                    Some(info) => {
-                        match info.get("tokenAmount"){
-                            Some(token_amount) => {
-                                match token_amount.get("uiAmount"){
-                                    Some(ui_amount) => {
-                                        match ui_amount.as_f64(){
-                                            Some(amount) => amount,
-                                            None => {
-                                                log::error!("Error while converting UiAmount to f64");
-                                                return Err(ResponseError::ConvertUiAmountError(Json(Code{code: "Error while converting UiAmount to f64".to_string()})));    
-                                            }
-                                        }
-                                    },
-                                    None => {
-                                        log::error!("Error: couldn't get the uiAmount from the parsed account.");
-                                        return Err(ResponseError::EmptyError(Json(Code{code: "Error: couldn't get the uiAmount from the parsed account.".to_string()})));
-                                    }
-                                }
-                            },
-                            None => {
-                                log::error!("Error: couldn't get the tokenAmount from the parsed account.");
-                                return Err(ResponseError::EmptyError(Json(Code{code: "Error while converting tokenAmount to f64".to_string()})));
-                            }
-                        }
-                    },
-                    None => {
-                        log::error!("Error: couldn't get the info from the parsed account.");
-                        return Err(ResponseError::EmptyError(Json(Code{code: "Error: couldn't get the info from the parsed account.".to_string()})));
-                    }
-                }
-            }
-
-        },
-        None => {
-            rpc_client.get_balance(&sender_address)
-                        .map_err(|err| {
-                        log::error!("Failed during getting the balance: {}", err);
-                        ResponseError::GetBalanceError (Json(Code{ code : "Failed during getting the balance of a wallet".to_string() }))
-            })? as f64
-        }
-    };
-
-    if transaction_parameters.from[0].amount > balance{
-        log::error!("Sender doesn't have enough balance: amount: {} balance: {}", transaction_parameters.from[0].amount, balance);
-        return Err(ResponseError::BalanceAmountError(Json(Code{code : "Sender doesn't have enough balance".to_string()})));
-    }
 
     let instructions: Vec<Instruction> = transaction_parameters.to.iter()
         .map(|transfer_param| {
