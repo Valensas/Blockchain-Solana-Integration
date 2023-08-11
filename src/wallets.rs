@@ -1,4 +1,4 @@
-use crate::{errors::{ResponseError, Code}, models::{Balance, WalletResponse}};
+use crate::{errors::{ResponseError, Code}, models::{Balance, WalletResponse, adjust_precision}};
 use solana_client::{rpc_client::RpcClient, rpc_request::TokenAccountsFilter};
 use std::sync::Arc;
 use rocket::{State, serde::json::Json};
@@ -80,11 +80,11 @@ pub fn get_wallet_balance(address: &str, contract: Option<String>,rpc_client: &S
             }
         },
         None => {
-            rpc_client.get_balance(&pubkey)
+            adjust_precision(rpc_client.get_balance(&pubkey)
                         .map_err(|err| {
                         log::error!("Failed during getting the balance: {}", err);
                         ResponseError::GetBalanceError (Json(Code{ code : "Failed during getting the balance of a wallet".to_string() }))
-            })? as f64
+            })? as f64)
         }
     };
 

@@ -192,7 +192,7 @@ impl TransactionInfoConvertiable for EncodedTransactionWithStatusMeta {
   }
 }
 
-fn adjust_precision(val: f64) -> f64 {
+pub fn adjust_precision(val: f64) -> f64 {
     (val) / (10_u32.pow(SOL_PRECISION) as f64)
 }
 
