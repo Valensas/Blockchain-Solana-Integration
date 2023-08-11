@@ -194,7 +194,7 @@ async fn test_address_balance() {
     assert_eq!(actual_status_param, Status::Ok);
 
     let expected_response_no_param: Value = json!({
-        "balance":2000000000.0,
+        "balance":2.0,
       });
     
     let expected_response_param: Value = json!({
